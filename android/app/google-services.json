@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "410776202310",
+    "project_id": "sportstribe-12549",
+    "storage_bucket": "sportstribe-12549.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:410776202310:android:b3a437bc07e28319016e47",
+        "android_client_info": {
+          "package_name": "com.example.map_project"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBSlkMLsaohBjwI0D_G7ZM6MGTo--fC48U"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

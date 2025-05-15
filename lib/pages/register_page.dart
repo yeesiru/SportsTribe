@@ -1,20 +1,51 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:map_project/widgets/password_field.dart';
 import 'package:map_project/widgets/text_field.dart';
 
 class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key});
+  final VoidCallback showLoginPage;
+  const RegisterPage({
+    super.key,
+    required this.showLoginPage
+  });
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
 }
 
 class _RegisterPageState extends State<RegisterPage> {
-  final TextEditingController _usernameController = TextEditingController();
+  // final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
   bool _isLoading = false;
+
+  @override
+  void dispose(){
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  Future signUp() async{
+    if(passwordConfirm()){
+      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      email: _emailController.text.trim(), 
+      password: _passwordController.text.trim()
+    );
+    }
+  }
+
+  bool passwordConfirm(){
+    if(_passwordController.text.trim() == _confirmPasswordController.text.trim()){
+      return true;
+    }else{
+      return false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -23,36 +54,57 @@ class _RegisterPageState extends State<RegisterPage> {
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.all(20.0),
+            padding: const EdgeInsets.symmetric(horizontal: 20.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 20),
-                const Text('Pictures'),
-
-                const SizedBox(height: 20),
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(24),
+                      bottomRight: Radius.circular(24),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.4),
+                        spreadRadius: 1,
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(24),
+                      bottomRight: Radius.circular(24),
+                    ),
+                    child: SizedBox(
+                      height: 200,
+                      width: double.infinity,
+                      child: Image.asset(
+                        'assets/images/login_image.jpg',
+                        fit: BoxFit.cover,
+                        alignment: Alignment.topCenter,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
                 const Text(
                   'Come join us!',
                   style: TextStyle(
-                    fontSize: 22,
+                    fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF0B6E99),
                   ),
                   textAlign: TextAlign.center,
                 ),
 
-                const SizedBox(height: 30),
-                CustomTextField(
-                  controller: _usernameController,
-                  label: 'Username',
-                  hint: 'Enter your username',
-                ),
-
                 const SizedBox(height: 16),
                 CustomTextField(
                   controller: _emailController,
-                  label: 'Gmail',
-                  hint: 'Enter your gmail',
+                  label: 'Email',
+                  hint: 'Enter your email',
                 ),
 
                 const SizedBox(height: 16),
@@ -63,10 +115,13 @@ class _RegisterPageState extends State<RegisterPage> {
                   controller: _confirmPasswordController,
                   label: 'Confirm Password',
                 ),
-
+                
                 const SizedBox(height: 24),
                 ElevatedButton(
-                  onPressed: _isLoading ? null : (){},
+                  onPressed: _isLoading ? null : (){
+                    signUp();
+                  },
+
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     foregroundColor: Colors.white,
@@ -79,7 +134,6 @@ class _RegisterPageState extends State<RegisterPage> {
                       ? const CircularProgressIndicator(color: Colors.white)
                       : const Text('Register', style: TextStyle(fontSize: 16)),
                 ),
-                
                 const SizedBox(height: 20),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -87,9 +141,12 @@ class _RegisterPageState extends State<RegisterPage> {
                     const Text('Already have an account?'),
                     TextButton(
                       onPressed: () {
-                        Navigator.pop(context);
+                        widget.showLoginPage;
                       },
-                      child: const Text('Login'),
+                      child: const Text(
+                        'Login',
+                        style: TextStyle(color: Colors.blue),
+                      ),
                     ),
                   ],
                 ),

@@ -43,24 +43,53 @@ class _LoginPageState extends State<LoginPage> {
       body: SafeArea(
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.all(20.0),
+            padding: const EdgeInsets.symmetric(horizontal: 20.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                const SizedBox(height: 20),
-                Text('Picture'),
-
-                const SizedBox(height: 20),
+                Container(
+                  decoration: BoxDecoration(
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(24),
+                      bottomRight: Radius.circular(24),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.grey.withOpacity(0.4),
+                        spreadRadius: 1,
+                        blurRadius: 6,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      bottomLeft: Radius.circular(24),
+                      bottomRight: Radius.circular(24),
+                    ),
+                    child: SizedBox(
+                      height:
+                          200, // Set a fixed height to show only half of the image
+                      width: double.infinity,
+                      child: Image.asset(
+                        'assets/images/login_image.jpg',
+                        fit: BoxFit.cover,
+                        alignment: Alignment
+                            .topCenter, // Align to the top to show the upper half
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 24),
                 const Text(
                   'Hi, Welcome to SportsTribe!',
                   style: TextStyle(
-                    fontSize: 22,
+                    fontSize: 24,
                     fontWeight: FontWeight.bold,
                     color: Color(0xFF0B6E99),
                   ),
                   textAlign: TextAlign.center,
                 ),
-
                 const Text(
                   'Let\'s have fun with us!',
                   style: TextStyle(fontSize: 16, color: Colors.grey),
@@ -73,15 +102,16 @@ class _LoginPageState extends State<LoginPage> {
                   label: 'Email',
                   hint: 'Enter your email',
                 ),
-
-                const SizedBox(height: 16),
+                  
+                const SizedBox(height: 20),
                 PasswordField(controller: _passwordController),
-
+                
                 const SizedBox(height: 24),
                 ElevatedButton(
                   onPressed: _isLoading ? null : (){
                     signIn();
                   },
+
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     foregroundColor: Colors.white,
@@ -94,9 +124,8 @@ class _LoginPageState extends State<LoginPage> {
                       ? const CircularProgressIndicator(color: Colors.white)
                       : const Text('Login', style: TextStyle(fontSize: 16)),
                 ),
-
-                const SizedBox(height: 10),
-                Center(
+                Align(
+                  alignment: Alignment.centerRight,
                   child: TextButton(
                     onPressed: () {
                       // Handle forgot password
@@ -107,13 +136,12 @@ class _LoginPageState extends State<LoginPage> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 10),
                 const Center(child: Text('Or')),
                 const SizedBox(height: 10),
                 OutlinedButton.icon(
-                  icon: Image.network(
-                    'https://developers.google.com/identity/images/g-logo.png',
+                  icon: Image.asset(
+                    'assets/images/google_logo.png',
                     height: 24,
                   ),
                   label: const Text('Sign in with Google'),
@@ -121,10 +149,13 @@ class _LoginPageState extends State<LoginPage> {
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     side: const BorderSide(color: Colors.grey),
+                    backgroundColor: Colors.grey[100],
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -133,7 +164,10 @@ class _LoginPageState extends State<LoginPage> {
                       onPressed: () {
                         widget.showRegisterPage;
                       },
-                      child: const Text('Sign up'),
+                      child: const Text(
+                        'Sign up',
+                        style: TextStyle(color: Colors.blue),
+                      ),
                     ),
                   ],
                 ),

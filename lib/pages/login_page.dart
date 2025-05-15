@@ -162,7 +162,7 @@ class _LoginPageState extends State<LoginPage> {
                     const Text('New here?'),
                     TextButton(
                       onPressed: () {
-                        widget.showRegisterPage;
+                        widget.showRegisterPage();
                       },
                       child: const Text(
                         'Sign up',

@@ -141,7 +141,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     const Text('Already have an account?'),
                     TextButton(
                       onPressed: () {
-                        widget.showLoginPage;
+                        widget.showLoginPage();
                       },
                       child: const Text(
                         'Login',

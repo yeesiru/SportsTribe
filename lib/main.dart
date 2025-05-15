@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:map_project/pages/leaderboard_page.dart';
 import 'package:map_project/pages/login_page.dart';
 import 'package:map_project/pages/register_page.dart';
 
@@ -13,13 +14,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'SportsTribe',
-      theme: ThemeData(primarySwatch: Colors.blue, fontFamily: 'Roboto'),
-      initialRoute: '/login',
-      routes: {
-        '/login': (context) => const LoginPage(),
-        '/register': (context) => const RegisterPage(),
-        //'/home': (context) => const HomeScreen(),
-      },
+      home: LeaderboardScreen()
     );
   }
 }

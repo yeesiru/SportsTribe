@@ -1,17 +1,38 @@
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:map_project/widgets/password_field.dart';
 import 'package:map_project/widgets/text_field.dart';
 
 class LoginPage extends StatefulWidget {
-  const LoginPage({super.key});
+  final VoidCallback showRegisterPage;
+  const LoginPage({
+    Key? key,
+    required this.showRegisterPage
+  }):super(key:key);
 
   @override
   State<LoginPage> createState() => _LoginPageState();
 }
 
 class _LoginPageState extends State<LoginPage> {
-  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
+
+  Future signIn() async{
+    await FirebaseAuth.instance.signInWithEmailAndPassword(
+      email: _emailController.text.trim(), 
+      password: _passwordController.text.trim(),
+      );
+  }
+
+  @override
+  void dispose(){
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
   bool _isPasswordVisible = false;
   bool _isLoading = false;
 
@@ -48,9 +69,9 @@ class _LoginPageState extends State<LoginPage> {
 
                 const SizedBox(height: 30),
                 CustomTextField(
-                  controller: _usernameController,
-                  label: 'Username',
-                  hint: 'Enter your username',
+                  controller: _emailController,
+                  label: 'Email',
+                  hint: 'Enter your email',
                 ),
 
                 const SizedBox(height: 16),
@@ -58,7 +79,9 @@ class _LoginPageState extends State<LoginPage> {
 
                 const SizedBox(height: 24),
                 ElevatedButton(
-                  onPressed: _isLoading ? null : (){},
+                  onPressed: _isLoading ? null : (){
+                    signIn();
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     foregroundColor: Colors.white,
@@ -108,7 +131,7 @@ class _LoginPageState extends State<LoginPage> {
                     const Text('New here?'),
                     TextButton(
                       onPressed: () {
-                        Navigator.pushNamed(context, '/register');
+                        widget.showRegisterPage;
                       },
                       child: const Text('Sign up'),
                     ),

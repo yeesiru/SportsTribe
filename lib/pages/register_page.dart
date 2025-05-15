@@ -1,20 +1,50 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:map_project/widgets/password_field.dart';
 import 'package:map_project/widgets/text_field.dart';
 
 class RegisterPage extends StatefulWidget {
-  const RegisterPage({super.key});
+  final VoidCallback showLoginPage;
+  const RegisterPage({
+    super.key,
+    required this.showLoginPage
+  });
 
   @override
   State<RegisterPage> createState() => _RegisterPageState();
 }
 
 class _RegisterPageState extends State<RegisterPage> {
-  final TextEditingController _usernameController = TextEditingController();
+  // final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   final TextEditingController _confirmPasswordController = TextEditingController();
   bool _isLoading = false;
+
+  @override
+  void dispose(){
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  Future signUp() async{
+    if(passwordConfirm()){
+      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      email: _emailController.text.trim(), 
+      password: _passwordController.text.trim()
+    );
+    }
+  }
+
+  bool passwordConfirm(){
+    if(_passwordController.text.trim() == _confirmPasswordController.text.trim()){
+      return true;
+    }else{
+      return false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -41,18 +71,18 @@ class _RegisterPageState extends State<RegisterPage> {
                   textAlign: TextAlign.center,
                 ),
 
-                const SizedBox(height: 30),
-                CustomTextField(
-                  controller: _usernameController,
-                  label: 'Username',
-                  hint: 'Enter your username',
-                ),
+                // const SizedBox(height: 30),
+                // CustomTextField(
+                //   controller: _usernameController,
+                //   label: 'Username',
+                //   hint: 'Enter your username',
+                // ),
 
                 const SizedBox(height: 16),
                 CustomTextField(
                   controller: _emailController,
-                  label: 'Gmail',
-                  hint: 'Enter your gmail',
+                  label: 'Email',
+                  hint: 'Enter your email',
                 ),
 
                 const SizedBox(height: 16),
@@ -66,7 +96,9 @@ class _RegisterPageState extends State<RegisterPage> {
 
                 const SizedBox(height: 24),
                 ElevatedButton(
-                  onPressed: _isLoading ? null : (){},
+                  onPressed: _isLoading ? null : (){
+                    signUp();
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
                     foregroundColor: Colors.white,
@@ -87,7 +119,7 @@ class _RegisterPageState extends State<RegisterPage> {
                     const Text('Already have an account?'),
                     TextButton(
                       onPressed: () {
-                        Navigator.pop(context);
+                        widget.showLoginPage;
                       },
                       child: const Text('Login'),
                     ),

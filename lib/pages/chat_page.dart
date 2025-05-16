@@ -6,7 +6,7 @@ import 'package:map_project/pages/home_page.dart';
 
 class ChatPage extends StatefulWidget {
   final int initialTabIndex;
-  
+
   const ChatPage({
     super.key,
     this.initialTabIndex = 1,
@@ -21,11 +21,13 @@ class _ChatPageState extends State<ChatPage> {
   late int _currentTabIndex;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  final List<ChatItem> _chats = [    ChatItem(
+  final List<ChatItem> _chats = [
+    ChatItem(
       name: 'Badminton Squad',
       lastMessage: 'Send your first message!',
       time: '16:33',
-      image: 'assets/images/profile.jpg', // Using profile image as a placeholder until badminton.jpg is available
+      image:
+          'assets/images/profile.jpg', // Using profile image as a placeholder until badminton.jpg is available
       isGroup: true,
     ),
     ChatItem(
@@ -41,18 +43,18 @@ class _ChatPageState extends State<ChatPage> {
       image: 'assets/images/profile.jpg', // Placeholder image
     ),
   ];
-  
+
   // Filtered chats based on search
   List<ChatItem> get _filteredChats {
     if (_searchQuery.isEmpty) {
       return _chats;
     }
-    
+
     return _chats.where((chat) {
       final name = chat.name.toLowerCase();
       final message = chat.lastMessage.toLowerCase();
       final query = _searchQuery.toLowerCase();
-      
+
       return name.contains(query) || message.contains(query);
     }).toList();
   }
@@ -63,14 +65,14 @@ class _ChatPageState extends State<ChatPage> {
     _searchController.addListener(_onSearchChanged);
     _currentTabIndex = widget.initialTabIndex;
   }
-  
+
   @override
   void dispose() {
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
   }
-  
+
   void _onSearchChanged() {
     setState(() {
       _searchQuery = _searchController.text;
@@ -79,30 +81,32 @@ class _ChatPageState extends State<ChatPage> {
 
   void _navigateToPage(int index) {
     if (index == _currentTabIndex) return; // Already on this page
-    
+
     setState(() {
       _currentTabIndex = index;
     });
-    
+
     switch (index) {
-      case 0: 
+      case 0:
         Navigator.pushReplacement(
-          context, 
+          context,
           MaterialPageRoute(builder: (context) => HomePage(initialTabIndex: 0)),
         );
         break;
       case 1:
         break;
-      case 2: 
+      case 2:
         Navigator.pushReplacement(
-          context, 
-          MaterialPageRoute(builder: (context) => LeaderboardPage(initialTabIndex: 2)),
+          context,
+          MaterialPageRoute(
+              builder: (context) => LeaderboardPage(initialTabIndex: 2)),
         );
         break;
       case 3:
         Navigator.pushReplacement(
-          context, 
-          MaterialPageRoute(builder: (context) => ProfilePage(initialTabIndex: 3)),
+          context,
+          MaterialPageRoute(
+              builder: (context) => ProfilePage(initialTabIndex: 3)),
         );
         break;
     }
@@ -124,7 +128,9 @@ class _ChatPageState extends State<ChatPage> {
               Container(
                 padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: isActive ? Colors.black.withOpacity(0.1) : Colors.transparent,
+                  color: isActive
+                      ? Colors.black.withOpacity(0.1)
+                      : Colors.transparent,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -168,8 +174,7 @@ class _ChatPageState extends State<ChatPage> {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-        },
+        onPressed: () {},
         backgroundColor: Colors.black,
         child: Icon(Icons.add, color: Colors.white),
       ),
@@ -178,7 +183,7 @@ class _ChatPageState extends State<ChatPage> {
           Container(
             padding: EdgeInsets.fromLTRB(20, 60, 20, 20),
             decoration: BoxDecoration(
-              color: Color(0xFFCCE945),
+              color: Color(0xFFD7F520), // Replaced color
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(20),
                 bottomRight: Radius.circular(20),
@@ -230,14 +235,15 @@ class _ChatPageState extends State<ChatPage> {
                                 hintText: 'Search...',
                                 hintStyle: TextStyle(color: Colors.grey[400]),
                                 border: InputBorder.none,
-                                suffixIcon: _searchQuery.isNotEmpty 
-                                  ? IconButton(
-                                      icon: Icon(Icons.clear, color: Colors.grey[400], size: 20),
-                                      onPressed: () {
-                                        _searchController.clear();
-                                      },
-                                    )
-                                  : null,
+                                suffixIcon: _searchQuery.isNotEmpty
+                                    ? IconButton(
+                                        icon: Icon(Icons.clear,
+                                            color: Colors.grey[400], size: 20),
+                                        onPressed: () {
+                                          _searchController.clear();
+                                        },
+                                      )
+                                    : null,
                               ),
                             ),
                           ),
@@ -245,64 +251,65 @@ class _ChatPageState extends State<ChatPage> {
                       ),
                     ),
                   ),
-                  
                   Expanded(
                     child: _filteredChats.isEmpty && _searchQuery.isNotEmpty
-                      ? Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.search_off,
-                                size: 64,
-                                color: Colors.grey[300],
-                              ),
-                              SizedBox(height: 16),
-                              Text(
-                                'No results found for "$_searchQuery"',
-                                style: TextStyle(
-                                  color: Colors.grey[500],
-                                  fontSize: 16,
+                        ? Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.search_off,
+                                  size: 64,
+                                  color: Colors.grey[300],
                                 ),
-                              ),
-                              SizedBox(height: 8),
-                              TextButton(
-                                onPressed: () {
-                                  _searchController.clear();
+                                SizedBox(height: 16),
+                                Text(
+                                  'No results found for "$_searchQuery"',
+                                  style: TextStyle(
+                                    color: Colors.grey[500],
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                SizedBox(height: 8),
+                                TextButton(
+                                  onPressed: () {
+                                    _searchController.clear();
+                                  },
+                                  child: Text('Clear search'),
+                                ),
+                              ],
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: _filteredChats.length,
+                            itemBuilder: (context, index) {
+                              final chat = _filteredChats[index];
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  backgroundImage: AssetImage(chat.image),
+                                ),
+                                title: Text(
+                                  chat.name,
+                                  style: TextStyle(fontWeight: FontWeight.bold),
+                                ),
+                                subtitle: Text(
+                                  chat.lastMessage,
+                                  style: TextStyle(
+                                      color: Colors.grey[600], fontSize: 13),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                trailing: Text(
+                                  chat.time,
+                                  style: TextStyle(
+                                      color: Colors.grey[500], fontSize: 12),
+                                ),
+                                onTap: () {
+                                  // Navigate to individual chat
                                 },
-                                child: Text('Clear search'),
-                              ),
-                            ],
+                              );
+                            },
                           ),
-                        )
-                      : ListView.builder(
-                          itemCount: _filteredChats.length,
-                          itemBuilder: (context, index) {
-                            final chat = _filteredChats[index];
-                            return ListTile(
-                              leading: CircleAvatar(
-                                backgroundImage: AssetImage(chat.image),
-                              ),
-                              title: Text(
-                                chat.name,
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              subtitle: Text(
-                                chat.lastMessage,
-                                style: TextStyle(color: Colors.grey[600], fontSize: 13),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              trailing: Text(
-                                chat.time,
-                                style: TextStyle(color: Colors.grey[500], fontSize: 12),
-                              ),
-                              onTap: () {
-                                // Navigate to individual chat
-                              },
-                            );
-                          },
-                        ),
                   ),
                 ],
               ),
@@ -310,7 +317,6 @@ class _ChatPageState extends State<ChatPage> {
           ),
         ],
       ),
-      
       bottomNavigationBar: Container(
         margin: EdgeInsets.all(15),
         decoration: BoxDecoration(
@@ -323,33 +329,28 @@ class _ChatPageState extends State<ChatPage> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildNavItem(
-                icon: Icons.group, 
-                isActive: _currentTabIndex == 0,
-                onTap: () {
-                  _navigateToPage(0);
-                }
-              ),
+                  icon: Icons.group,
+                  isActive: _currentTabIndex == 0,
+                  onTap: () {
+                    _navigateToPage(0);
+                  }),
               _buildNavItem(
-                icon: Icons.chat_bubble_outline, 
-                isActive: _currentTabIndex == 1,
-                onTap: () {
-                }
-              ),
+                  icon: Icons.chat_bubble_outline,
+                  isActive: _currentTabIndex == 1,
+                  onTap: () {}),
               _buildNavItem(
-                icon: Icons.rocket, 
-                isActive: _currentTabIndex == 2,
-                onTap: () {
-                  _navigateToPage(2);
-                },
-                hasNotification: true
-              ),
+                  icon: Icons.rocket,
+                  isActive: _currentTabIndex == 2,
+                  onTap: () {
+                    _navigateToPage(2);
+                  },
+                  hasNotification: true),
               _buildNavItem(
-                icon: Icons.person_outline, 
-                isActive: _currentTabIndex == 3,
-                onTap: () {
-                  _navigateToPage(3);
-                }
-              ),
+                  icon: Icons.person_outline,
+                  isActive: _currentTabIndex == 3,
+                  onTap: () {
+                    _navigateToPage(3);
+                  }),
             ],
           ),
         ),
@@ -364,7 +365,7 @@ class ChatItem {
   final String time;
   final String image;
   final bool isGroup;
-  
+
   ChatItem({
     required this.name,
     required this.lastMessage,
@@ -372,4 +373,4 @@ class ChatItem {
     required this.image,
     this.isGroup = false,
   });
-} 
+}

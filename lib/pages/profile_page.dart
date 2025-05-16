@@ -7,7 +7,7 @@ import 'package:map_project/pages/home_page.dart';
 
 class ProfilePage extends StatefulWidget {
   final int initialTabIndex;
-  
+
   const ProfilePage({
     super.key,
     this.initialTabIndex = 3,
@@ -19,7 +19,7 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final user = FirebaseAuth.instance.currentUser!;
-  
+
   // Profile information
   String username = '';
   String birthDate = 'Not yet set';
@@ -27,7 +27,7 @@ class _ProfilePageState extends State<ProfilePage> {
   bool mySportsEnabled = true;
   bool myCommunityEnabled = true;
   late int _currentTabIndex; // Profile tab is active
-  
+
   @override
   void initState() {
     super.initState();
@@ -35,31 +35,32 @@ class _ProfilePageState extends State<ProfilePage> {
     username = user.displayName ?? user.email!.split('@')[0];
     _currentTabIndex = widget.initialTabIndex;
   }
-  
+
   void _navigateToPage(int index) {
     if (index == _currentTabIndex) return; // Already on this page
-    
+
     setState(() {
       _currentTabIndex = index;
     });
-    
+
     switch (index) {
       case 0: // Home
         Navigator.pushReplacement(
-          context, 
+          context,
           MaterialPageRoute(builder: (context) => HomePage(initialTabIndex: 0)),
         );
         break;
       case 1: // Chat
         Navigator.pushReplacement(
-          context, 
+          context,
           MaterialPageRoute(builder: (context) => ChatPage(initialTabIndex: 1)),
         );
         break;
       case 2: // Leaderboard
         Navigator.pushReplacement(
-          context, 
-          MaterialPageRoute(builder: (context) => LeaderboardPage(initialTabIndex: 2)),
+          context,
+          MaterialPageRoute(
+              builder: (context) => LeaderboardPage(initialTabIndex: 2)),
         );
         break;
       case 3: // Profile
@@ -67,7 +68,7 @@ class _ProfilePageState extends State<ProfilePage> {
         break;
     }
   }
-  
+
   Widget _buildProfileItem({
     required IconData icon,
     required String label,
@@ -140,7 +141,9 @@ class _ProfilePageState extends State<ProfilePage> {
               Container(
                 padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: isActive ? Colors.black.withOpacity(0.1) : Colors.transparent,
+                  color: isActive
+                      ? Colors.black.withOpacity(0.1)
+                      : Colors.transparent,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -189,7 +192,7 @@ class _ProfilePageState extends State<ProfilePage> {
           Container(
             padding: EdgeInsets.fromLTRB(20, 60, 20, 40),
             decoration: BoxDecoration(
-              color: Color(0xFFCCE945),
+              color: Color(0xFFD7F520),
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(30),
                 bottomRight: Radius.circular(30),
@@ -213,7 +216,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             ),
           ),
-          
+
           // Profile Avatar
           Transform.translate(
             offset: Offset(0, -40),
@@ -257,7 +260,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ],
             ),
           ),
-          
+
           // Profile details
           Expanded(
             child: Padding(
@@ -313,7 +316,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         });
                       },
                     ),
-                    
+
                     SizedBox(height: 30),
                     // Logout button
                     Container(
@@ -325,7 +328,8 @@ class _ProfilePageState extends State<ProfilePage> {
                             context: context,
                             builder: (context) => AlertDialog(
                               title: Text('Sign Out'),
-                              content: Text('Are you sure you want to sign out?'),
+                              content:
+                                  Text('Are you sure you want to sign out?'),
                               actions: [
                                 TextButton(
                                   onPressed: () => Navigator.pop(context),
@@ -336,9 +340,9 @@ class _ProfilePageState extends State<ProfilePage> {
                                     await FirebaseAuth.instance.signOut();
                                     // Replace entire navigation stack with MainPage
                                     Navigator.of(context).pushAndRemoveUntil(
-                                      MaterialPageRoute(builder: (context) => MainPage()),
-                                      (route) => false
-                                    );
+                                        MaterialPageRoute(
+                                            builder: (context) => MainPage()),
+                                        (route) => false);
                                   },
                                   child: Text('Sign Out'),
                                 ),
@@ -379,38 +383,34 @@ class _ProfilePageState extends State<ProfilePage> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildNavItem(
-                icon: Icons.group, 
-                isActive: _currentTabIndex == 0,
-                onTap: () {
-                  _navigateToPage(0);
-                }
-              ),
+                  icon: Icons.group,
+                  isActive: _currentTabIndex == 0,
+                  onTap: () {
+                    _navigateToPage(0);
+                  }),
               _buildNavItem(
-                icon: Icons.chat_bubble_outline, 
-                isActive: _currentTabIndex == 1,
-                onTap: () {
-                  _navigateToPage(1);
-                }
-              ),
+                  icon: Icons.chat_bubble_outline,
+                  isActive: _currentTabIndex == 1,
+                  onTap: () {
+                    _navigateToPage(1);
+                  }),
               _buildNavItem(
-                icon: Icons.rocket, 
-                isActive: _currentTabIndex == 2,
-                onTap: () {
-                  _navigateToPage(2);
-                },
-                hasNotification: true
-              ),
+                  icon: Icons.rocket,
+                  isActive: _currentTabIndex == 2,
+                  onTap: () {
+                    _navigateToPage(2);
+                  },
+                  hasNotification: true),
               _buildNavItem(
-                icon: Icons.person_outline, 
-                isActive: _currentTabIndex == 3,
-                onTap: () {
-                  // Already on profile page
-                }
-              ),
+                  icon: Icons.person_outline,
+                  isActive: _currentTabIndex == 3,
+                  onTap: () {
+                    // Already on profile page
+                  }),
             ],
           ),
         ),
       ),
     );
   }
-} 
+}

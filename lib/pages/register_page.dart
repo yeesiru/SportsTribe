@@ -31,11 +31,80 @@ class _RegisterPageState extends State<RegisterPage> {
   }
 
   Future signUp() async{
-    if(passwordConfirm()){
+    setState(() {
+      _isLoading = true;
+    });
+    
+    // Check if passwords match
+    if(!passwordConfirm()){
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Passwords do not match!'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+    
+    try {
       await FirebaseAuth.instance.createUserWithEmailAndPassword(
-      email: _emailController.text.trim(), 
-      password: _passwordController.text.trim()
-    );
+        email: _emailController.text.trim(), 
+        password: _passwordController.text.trim()
+      );
+      
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Registration successful!'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.only(bottom: 20.0, left: 20.0, right: 20.0, top: 40.0),
+        ),
+      );
+      
+      // Delay to allow user to see the success message before redirecting
+      Future.delayed(const Duration(seconds: 1), () {
+        // Navigate to login page
+        widget.showLoginPage();
+      });
+    } on FirebaseAuthException catch (e) {
+      String errorMessage = 'An error occurred during registration';
+      
+      if (e.code == 'weak-password') {
+        errorMessage = 'The password provided is too weak';
+      } else if (e.code == 'email-already-in-use') {
+        errorMessage = 'An account already exists for that email';
+      } else if (e.code == 'invalid-email') {
+        errorMessage = 'Invalid email format';
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.only(bottom: 20.0, left: 20.0, right: 20.0, top: 40.0),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.only(bottom: 20.0, left: 20.0, right: 20.0, top: 40.0),
+        ),
+      );
+    } finally {
+      // Set loading to false whether successful or not
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 

@@ -20,10 +20,63 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController _passwordController = TextEditingController();
 
   Future signIn() async{
-    await FirebaseAuth.instance.signInWithEmailAndPassword(
-      email: _emailController.text.trim(), 
-      password: _passwordController.text.trim(),
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailController.text.trim(), 
+        password: _passwordController.text.trim(),
       );
+      
+      // Show success message if needed (this might not be seen as user will be redirected)
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Login successful!'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.only(bottom: 20.0, left: 20.0, right: 20.0, top: 40.0),
+        ),
+      );
+    } on FirebaseAuthException catch (e) {
+      String errorMessage = 'An error occurred during login';
+      
+      if (e.code == 'user-not-found') {
+        errorMessage = 'No user found for that email';
+      } else if (e.code == 'wrong-password') {
+        errorMessage = 'Wrong password provided';
+      } else if (e.code == 'invalid-email') {
+        errorMessage = 'Invalid email format';
+      } else if (e.code == 'user-disabled') {
+        errorMessage = 'This account has been disabled';
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(errorMessage),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.only(bottom: 20.0, left: 20.0, right: 20.0, top: 40.0),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: ${e.toString()}'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          margin: EdgeInsets.only(bottom: 20.0, left: 20.0, right: 20.0, top: 40.0),
+        ),
+      );
+    } finally {
+      // Set loading to false whether successful or not
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override

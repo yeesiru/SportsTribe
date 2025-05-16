@@ -200,10 +200,6 @@ class _ProfilePageState extends State<ProfilePage> {
               children: [
                 Row(
                   children: [
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Icon(Icons.arrow_back),
-                    ),
                     SizedBox(width: 16),
                     Text(
                       'Profile Settings',

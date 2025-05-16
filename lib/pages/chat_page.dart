@@ -21,12 +21,11 @@ class _ChatPageState extends State<ChatPage> {
   late int _currentTabIndex;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  final List<ChatItem> _chats = [
-    ChatItem(
+  final List<ChatItem> _chats = [    ChatItem(
       name: 'Badminton Squad',
       lastMessage: 'Send your first message!',
       time: '16:33',
-      image: 'assets/images/badminton.jpg',
+      image: 'assets/images/profile.jpg', // Using profile image as a placeholder until badminton.jpg is available
       isGroup: true,
     ),
     ChatItem(
@@ -190,10 +189,6 @@ class _ChatPageState extends State<ChatPage> {
               children: [
                 Row(
                   children: [
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Icon(Icons.arrow_back),
-                    ),
                     SizedBox(width: 16),
                     Text(
                       'Chats',

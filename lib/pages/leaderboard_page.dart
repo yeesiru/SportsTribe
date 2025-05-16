@@ -206,10 +206,6 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                 padding: const EdgeInsets.fromLTRB(20, 20, 20, 10),
                 child: Row(
                   children: [
-                    GestureDetector(
-                      onTap: () => Navigator.pop(context),
-                      child: Icon(Icons.arrow_back, color: Colors.white),
-                    ),
                     SizedBox(width: 16),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

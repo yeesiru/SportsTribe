@@ -219,7 +219,7 @@ class _HomePageState extends State<HomePage> {
               children: [
                 Expanded(
                   child: GestureDetector(
-                    onTap: () => _navigateToPage(0),
+                    onTap: () => _onItemTapped(0),
                     child: Container(
                       padding: EdgeInsets.symmetric(vertical: 10),
                       decoration: BoxDecoration(
@@ -239,7 +239,7 @@ class _HomePageState extends State<HomePage> {
                 ),
                 Expanded(
                   child: GestureDetector(
-                    onTap: () => _navigateToPage(1),
+                    onTap: () => _onItemTapped(1),
                     child: Container(
                       padding: EdgeInsets.symmetric(vertical: 10),
                       decoration: BoxDecoration(

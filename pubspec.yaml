@@ -38,6 +38,8 @@ dependencies:
   firebase_core: ^2.27.0
   cloud_firestore: ^4.15.1    # For Firestore database
   firebase_messaging: ^14.7.10 # For push notifications
+  image_picker: ^0.8.7+3   # For picking images from the gallery or camera
+  firebase_storage: ^11.0.10 # For storing images in Firebase Storage
 
 dev_dependencies:
   flutter_test:

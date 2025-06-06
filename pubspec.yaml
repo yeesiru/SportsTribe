@@ -40,6 +40,7 @@ dependencies:
   firebase_messaging: ^14.7.10 # For push notifications
   image_picker: ^0.8.7+3   # For picking images from the gallery or camera
   firebase_storage: ^11.0.10 # For storing images in Firebase Storage
+  intl: ^0.18.0
 
 dev_dependencies:
   flutter_test:

@@ -1,9 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:map_project/pages/forgot_pw_page.dart';
 import 'package:map_project/widgets/password_field.dart';
 import 'package:map_project/widgets/text_field.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:flutter/services.dart';
 
 class LoginPage extends StatefulWidget {
   final VoidCallback showRegisterPage;
@@ -16,12 +17,147 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-
+  static final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: [
+      'email',
+      'profile',
+    ],
+    // Force account picker to show
+    forceCodeForRefreshToken: true,
+  );
   Future signIn() async {
-    await FirebaseAuth.instance.signInWithEmailAndPassword(
-      email: _emailController.text.trim(),
-      password: _passwordController.text.trim(),
-    );
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await FirebaseAuth.instance.signInWithEmailAndPassword(
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
+      );
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sign in failed: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future signInWithGoogle() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      print('Starting Google Sign-In process...');
+      await _googleSignIn.signOut();
+      final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+      if (googleUser == null) {
+        print('User cancelled Google Sign-In');
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+        }
+        return;
+      }
+      print('Google Sign-In successful for: ${googleUser.email}');
+
+      final GoogleSignInAuthentication googleAuth =
+          await googleUser.authentication;
+
+      print('Got Google authentication tokens');
+      if (googleAuth.accessToken == null || googleAuth.idToken == null) {
+        throw Exception('Failed to obtain Google authentication tokens');
+      }
+      final credential = GoogleAuthProvider.credential(
+        accessToken: googleAuth.accessToken,
+        idToken: googleAuth.idToken,
+      );
+      print('Created Firebase credential, signing in...');
+      final userCredential =
+          await FirebaseAuth.instance.signInWithCredential(credential);
+
+      print(
+          'Successfully signed in to Firebase: ${userCredential.user?.email}');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Successfully signed in with Google!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } on PlatformException catch (e) {
+      print(
+          'Platform Exception during Google Sign-In: ${e.code} - ${e.message}');
+      if (mounted) {
+        String errorMessage = 'Google Sign-In failed. Please try again.';
+        if (e.code == 'sign_in_failed') {
+          errorMessage = 'Google Sign-In failed. Please try again.';
+        } else if (e.code == 'network_error') {
+          errorMessage = 'Network error. Please check your connection.';
+        } else if (e.code == 'sign_in_canceled') {
+          errorMessage = 'Sign-in was canceled.';
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } on FirebaseAuthException catch (e) {
+      print('Firebase Auth Exception: ${e.code} - ${e.message}');
+      if (mounted) {
+        String errorMessage = 'Authentication failed. Please try again.';
+        if (e.code == 'account-exists-with-different-credential') {
+          errorMessage =
+              'An account already exists with a different sign-in method.';
+        } else if (e.code == 'invalid-credential') {
+          errorMessage = 'Invalid credentials. Please try again.';
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    } catch (e) {
+      print('Unexpected error during Google Sign-In: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content:
+                Text('An unexpected error occurred. Please try again later.'),
+            backgroundColor: Colors.red,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   @override
@@ -31,7 +167,6 @@ class _LoginPageState extends State<LoginPage> {
     super.dispose();
   }
 
-  bool _isPasswordVisible = false;
   bool _isLoading = false;
 
   @override
@@ -140,12 +275,19 @@ class _LoginPageState extends State<LoginPage> {
                     const Center(child: Text('Or')),
                     const SizedBox(height: 10),
                     OutlinedButton.icon(
-                      icon: Image.asset(
-                        'assets/images/google_logo.png',
-                        height: 24,
-                      ),
-                      label: const Text('Sign in with Google'),
-                      onPressed: () {},
+                      icon: _isLoading
+                          ? const SizedBox(
+                              height: 24,
+                              width: 24,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : Image.asset(
+                              'assets/images/google_logo.png',
+                              height: 24,
+                            ),
+                      label: Text(
+                          _isLoading ? 'Signing in...' : 'Sign in with Google'),
+                      onPressed: _isLoading ? null : signInWithGoogle,
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 12),
                         side: const BorderSide(color: Colors.grey),

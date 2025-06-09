@@ -1,13 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:io';
+import 'package:map_project/pages/home_page.dart';
 
 class CreateclubPage extends StatefulWidget {
-  const CreateclubPage({Key? key}) : super(key: key);
+  final int initialTabIndex;
+
+  const CreateclubPage({
+    super.key,
+    this.initialTabIndex = 0,
+  });
 
   @override
   State<CreateclubPage> createState() => _CreateClubPageState();
@@ -87,8 +92,11 @@ class _CreateClubPageState extends State<CreateclubPage> {
         const SnackBar(content: Text('Club created successfully!')),
       );
 
-      // Navigate to home or club detail page
-      // Navigator.of(context).pushReplacement(...);
+      // Navigate to home page
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => HomePage()),
+        (route) => false,
+      );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error creating club: $e')),
@@ -411,37 +419,6 @@ class _CreateClubPageState extends State<CreateclubPage> {
                     ),
                   ),
                 ),
-
-                // Bottom navigation bar
-                Container(
-                  height: 60,
-                  decoration: const BoxDecoration(
-                    color: Colors.white,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: [
-                      IconButton(
-                        icon: Icon(Icons.group, color: Colors.grey.shade600),
-                        onPressed: () {},
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.chat_bubble,
-                            color: Colors.grey.shade600),
-                        onPressed: () {},
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.rocket_launch,
-                            color: Colors.grey.shade600),
-                        onPressed: () {},
-                      ),
-                      IconButton(
-                        icon: Icon(Icons.person, color: Colors.grey.shade600),
-                        onPressed: () {},
-                      ),
-                    ],
-                  ),
-                ),
               ],
             ),
           ),
@@ -464,6 +441,37 @@ class _CreateClubPageState extends State<CreateclubPage> {
           fontSize: 12,
           color: Colors.black54,
         ),
+      ),
+    );
+  }
+
+  Widget _buildNavItem({
+    required IconData icon,
+    required bool isActive,
+    required VoidCallback onTap,
+    bool hasNotification = false,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon,
+            color: isActive ? Colors.deepPurple : Colors.grey,
+            size: 28,
+          ),
+          if (hasNotification)
+            Container(
+              margin: const EdgeInsets.only(top: 4),
+              width: 8,
+              height: 8,
+              decoration: BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+              ),
+            ),
+        ],
       ),
     );
   }

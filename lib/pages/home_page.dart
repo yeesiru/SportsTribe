@@ -1,12 +1,15 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:map_project/pages/createClub_page.dart';
 import 'package:map_project/pages/profile_page.dart';
 import 'package:map_project/pages/chat_page.dart';
 import 'package:map_project/pages/leaderboard_page.dart';
+import 'package:map_project/pages/club_details_page.dart';
 
 class HomePage extends StatefulWidget {
   final int initialTabIndex;
-  
+
   const HomePage({
     super.key,
     this.initialTabIndex = 0,
@@ -20,13 +23,22 @@ class _HomePageState extends State<HomePage> {
   final user = FirebaseAuth.instance.currentUser!;
   int _selectedIndex = 0;
   late int _currentTabIndex; // 0 = home, 1 = chat, 2 = leaderboard, 3 = profile
-  
+
+  //Fetch club where creatorID match userID
+  Stream<QuerySnapshot> getUserRelatedClubs() {
+  final uid = user.uid;
+  return FirebaseFirestore.instance
+      .collection('club')
+      .where('members', arrayContains: uid)
+      .snapshots();
+}
+
   @override
   void initState() {
     super.initState();
     _currentTabIndex = widget.initialTabIndex;
   }
-  
+
   void _onItemTapped(int index) {
     setState(() {
       _selectedIndex = index;
@@ -35,30 +47,32 @@ class _HomePageState extends State<HomePage> {
 
   void _navigateToPage(int index) {
     if (index == _currentTabIndex) return; // Already on this page
-    
+
     setState(() {
       _currentTabIndex = index;
     });
-    
+
     switch (index) {
       case 0:
         break;
       case 1: // Chat
         Navigator.pushReplacement(
-          context, 
+          context,
           MaterialPageRoute(builder: (context) => ChatPage(initialTabIndex: 1)),
         );
         break;
       case 2: // Leaderboard
         Navigator.pushReplacement(
-          context, 
-          MaterialPageRoute(builder: (context) => LeaderboardPage(initialTabIndex: 2)),
+          context,
+          MaterialPageRoute(
+              builder: (context) => LeaderboardPage(initialTabIndex: 2)),
         );
         break;
       case 3: // Profile
         Navigator.pushReplacement(
-          context, 
-          MaterialPageRoute(builder: (context) => ProfilePage(initialTabIndex: 3)),
+          context,
+          MaterialPageRoute(
+              builder: (context) => ProfilePage(initialTabIndex: 3)),
         );
         break;
     }
@@ -88,7 +102,8 @@ class _HomePageState extends State<HomePage> {
                       children: [
                         CircleAvatar(
                           radius: 20,
-                          backgroundImage: AssetImage('assets/images/profile.jpg'),
+                          backgroundImage:
+                              AssetImage('assets/images/profile.jpg'),
                         ),
                         SizedBox(width: 10),
                         Text(
@@ -108,7 +123,9 @@ class _HomePageState extends State<HomePage> {
                               decoration: BoxDecoration(
                                 color: Colors.white.withOpacity(0.3),
                                 shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white.withOpacity(0.5), width: 1),
+                                border: Border.all(
+                                    color: Colors.white.withOpacity(0.5),
+                                    width: 1),
                               ),
                               child: IconButton(
                                 icon: Icon(Icons.notifications_outlined),
@@ -124,7 +141,8 @@ class _HomePageState extends State<HomePage> {
                                 decoration: BoxDecoration(
                                   color: Colors.red,
                                   shape: BoxShape.circle,
-                                  border: Border.all(color: Colors.white, width: 1.5),
+                                  border: Border.all(
+                                      color: Colors.white, width: 1.5),
                                 ),
                               ),
                             ),
@@ -135,11 +153,19 @@ class _HomePageState extends State<HomePage> {
                           decoration: BoxDecoration(
                             color: Colors.white.withOpacity(0.3),
                             shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white.withOpacity(0.5), width: 1),
+                            border: Border.all(
+                                color: Colors.white.withOpacity(0.5), width: 1),
                           ),
                           child: IconButton(
                             icon: Icon(Icons.add),
-                            onPressed: () {},
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (context) => const CreateclubPage(),
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ],
@@ -160,7 +186,8 @@ class _HomePageState extends State<HomePage> {
                       children: [
                         Icon(Icons.star, color: Colors.amber, size: 16),
                         SizedBox(width: 5),
-                        Text('520 pts', style: TextStyle(fontWeight: FontWeight.bold)),
+                        Text('520 pts',
+                            style: TextStyle(fontWeight: FontWeight.bold)),
                       ],
                     ),
                   ),
@@ -175,28 +202,80 @@ class _HomePageState extends State<HomePage> {
                   child: Row(
                     mainAxisAlignment: MainAxisAlignment.start,
                     children: [
-                      Column(
-                        children: [
-                          CircleAvatar(
-                            radius: 30,
-                            backgroundColor: Colors.green[200],
-                            child: Icon(Icons.sports_tennis, color: Colors.green[800]),
-                          ),
-                          SizedBox(height: 8),
-                          Text('Badminton Squad', style: TextStyle(fontSize: 12)),
-                        ],
+                      // User's created communities (clubs)
+                      StreamBuilder<QuerySnapshot>(
+                        stream: getUserRelatedClubs(),
+                        builder: (context, snapshot) {
+                          if (snapshot.connectionState == ConnectionState.waiting) {
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 16.0),
+                              child: CircleAvatar(
+                                radius: 30,
+                                backgroundColor: Colors.green[200],
+                                child: CircularProgressIndicator(),
+                              ),
+                            );
+                          }   
+                          // Show all clubs the user is related to
+                          return Row(
+                            children: snapshot.data!.docs.map((doc) {
+                              final club = doc.data() as Map<String, dynamic>;
+                              return GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) => ClubDetailsPage(
+                                        clubId: doc.id,
+                                        clubData: club,
+                                      ),
+                                    ),
+                                  );
+                                },
+                                child: Padding(
+                                  padding: const EdgeInsets.only(right: 16.0),
+                                  child: Column(
+                                    children: [
+                                      CircleAvatar(
+                                        radius: 30,
+                                        backgroundColor: Colors.green[200],
+                                        backgroundImage: club['imageUrl'] != null
+                                            ? NetworkImage(club['imageUrl'])
+                                            : null,
+                                        child: club['imageUrl'] == null
+                                            ? Icon(Icons.sports_tennis,
+                                                color: Colors.green[800])
+                                            : null,
+                                      ),
+                                      SizedBox(height: 8),
+                                      Text(club['name'] ?? 'My Club',
+                                          style: TextStyle(fontSize: 12)),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            }).toList(),
+                          );
+                        },
                       ),
                       SizedBox(width: 10),
-                      Column(
-                        children: [
-                          CircleAvatar(
-                            radius: 30,
-                            backgroundColor: Colors.grey[200],
-                            child: Icon(Icons.group_add, color: Colors.grey[800]),
-                          ),
-                          SizedBox(height: 8),
-                          Text('Join community', style: TextStyle(fontSize: 12)),
-                        ],
+                      // Join community column (static)
+                      GestureDetector(
+                        onTap: () {
+                          // Navigate to your community browse/join page here
+                          // Example: Navigator.push(context, MaterialPageRoute(builder: (_) => CommunityBrowsePage()));
+                        },
+                        child: Column(
+                          children: [
+                            CircleAvatar(
+                              radius: 30,
+                              backgroundColor: Colors.grey[200],
+                              child: Icon(Icons.group_add, color: Colors.grey[800]),
+                            ),
+                            SizedBox(height: 8),
+                            Text('Join community', style: TextStyle(fontSize: 12)),
+                          ],
+                        ),
                       ),
                       Spacer(),
                       Icon(Icons.chevron_right),
@@ -206,7 +285,7 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
           ),
-          
+
           // Tabs for Events and Posts
           Container(
             margin: EdgeInsets.all(15),
@@ -223,14 +302,17 @@ class _HomePageState extends State<HomePage> {
                     child: Container(
                       padding: EdgeInsets.symmetric(vertical: 10),
                       decoration: BoxDecoration(
-                        color: _selectedIndex == 0 ? Colors.black : Colors.transparent,
+                        color: _selectedIndex == 0
+                            ? Colors.black
+                            : Colors.transparent,
                         borderRadius: BorderRadius.circular(25),
                       ),
                       child: Text(
                         'Events',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: _selectedIndex == 0 ? Colors.white : Colors.black,
+                          color:
+                              _selectedIndex == 0 ? Colors.white : Colors.black,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -243,14 +325,17 @@ class _HomePageState extends State<HomePage> {
                     child: Container(
                       padding: EdgeInsets.symmetric(vertical: 10),
                       decoration: BoxDecoration(
-                        color: _selectedIndex == 1 ? Colors.black : Colors.transparent,
+                        color: _selectedIndex == 1
+                            ? Colors.black
+                            : Colors.transparent,
                         borderRadius: BorderRadius.circular(25),
                       ),
                       child: Text(
                         'Posts',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: _selectedIndex == 1 ? Colors.white : Colors.black,
+                          color:
+                              _selectedIndex == 1 ? Colors.white : Colors.black,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -260,7 +345,7 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
           ),
-          
+
           if (_selectedIndex == 0)
             Expanded(
               child: ListView(
@@ -273,7 +358,7 @@ class _HomePageState extends State<HomePage> {
                       color: Colors.white,
                       borderRadius: BorderRadius.circular(15),
                     ),
-        child: Column(
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Row(
@@ -281,14 +366,19 @@ class _HomePageState extends State<HomePage> {
                             CircleAvatar(
                               radius: 20,
                               backgroundColor: Colors.green[200],
-                              child: Icon(Icons.sports_tennis, color: Colors.green[800], size: 20),
+                              child: Icon(Icons.sports_tennis,
+                                  color: Colors.green[800], size: 20),
                             ),
                             SizedBox(width: 10),
                             Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text('Badminton Squad', style: TextStyle(fontWeight: FontWeight.bold)),
-                                Text('25 mins ago', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                                Text('Badminton Squad',
+                                    style:
+                                        TextStyle(fontWeight: FontWeight.bold)),
+                                Text('25 mins ago',
+                                    style: TextStyle(
+                                        color: Colors.grey, fontSize: 12)),
                               ],
                             ),
                             Spacer(),
@@ -316,22 +406,26 @@ class _HomePageState extends State<HomePage> {
                         SizedBox(height: 5),
                         Wrap(
                           spacing: 5,
-          children: [
+                          children: [
                             Container(
-                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
                                 color: Colors.blue.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(5),
                               ),
-                              child: Text('#Badminton', style: TextStyle(color: Colors.blue)),
+                              child: Text('#Badminton',
+                                  style: TextStyle(color: Colors.blue)),
                             ),
                             Container(
-                              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 2),
                               decoration: BoxDecoration(
                                 color: Colors.blue.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(5),
                               ),
-                              child: Text('#ShuttleSmash', style: TextStyle(color: Colors.blue)),
+                              child: Text('#ShuttleSmash',
+                                  style: TextStyle(color: Colors.blue)),
                             ),
                           ],
                         ),
@@ -345,7 +439,8 @@ class _HomePageState extends State<HomePage> {
                               borderRadius: BorderRadius.circular(20),
                             ),
                           ),
-                          child: Text('Join', style: TextStyle(color: Colors.white)),
+                          child: Text('Join',
+                              style: TextStyle(color: Colors.white)),
                         ),
                       ],
                     ),
@@ -361,7 +456,6 @@ class _HomePageState extends State<HomePage> {
             ),
         ],
       ),
-      
       bottomNavigationBar: Container(
         margin: EdgeInsets.all(15),
         decoration: BoxDecoration(
@@ -374,26 +468,22 @@ class _HomePageState extends State<HomePage> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildNavItem(
-                icon: Icons.group, 
-                isActive: _currentTabIndex == 0,
-                onTap: () => _navigateToPage(0)
-              ),
+                  icon: Icons.group,
+                  isActive: _currentTabIndex == 0,
+                  onTap: () => _navigateToPage(0)),
               _buildNavItem(
-                icon: Icons.chat_bubble_outline, 
-                isActive: _currentTabIndex == 1,
-                onTap: () => _navigateToPage(1)
-              ),
+                  icon: Icons.chat_bubble_outline,
+                  isActive: _currentTabIndex == 1,
+                  onTap: () => _navigateToPage(1)),
               _buildNavItem(
-                icon: Icons.rocket, 
-                isActive: _currentTabIndex == 2,
-                onTap: () => _navigateToPage(2),
-                hasNotification: true
-              ),
+                  icon: Icons.rocket,
+                  isActive: _currentTabIndex == 2,
+                  onTap: () => _navigateToPage(2),
+                  hasNotification: true),
               _buildNavItem(
-                icon: Icons.person_outline, 
-                isActive: _currentTabIndex == 3,
-                onTap: () => _navigateToPage(3)
-              ),
+                  icon: Icons.person_outline,
+                  isActive: _currentTabIndex == 3,
+                  onTap: () => _navigateToPage(3)),
             ],
           ),
         ),
@@ -417,7 +507,9 @@ class _HomePageState extends State<HomePage> {
               Container(
                 padding: EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: isActive ? Colors.black.withOpacity(0.1) : Colors.transparent,
+                  color: isActive
+                      ? Colors.black.withOpacity(0.1)
+                      : Colors.transparent,
                   shape: BoxShape.circle,
                 ),
                 child: Icon(

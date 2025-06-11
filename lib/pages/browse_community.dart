@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
 class BrowseCommunityPage extends StatefulWidget {
   @override
@@ -10,43 +11,6 @@ class _BrowseCommunityPageState extends State<BrowseCommunityPage> {
   String? selectedLocation;
   String? selectedSport;
   String? selectedSkill;
-
-  // Dummy data for demonstration
-  final List<Map<String, String>> communities = [
-    {
-      'name': 'Badminton Squad',
-      'location': 'Johor',
-      'sport': 'Badminton',
-      'skill': 'Intermediate',
-      'imageUrl': '',
-    },
-    {
-      'name': 'Football United',
-      'location': 'Kuala Lumpur',
-      'sport': 'Football',
-      'skill': 'Beginner',
-      'imageUrl': '',
-    },
-    {
-      'name': 'Tennis Champs',
-      'location': 'Penang',
-      'sport': 'Tennis',
-      'skill': 'Advanced',
-      'imageUrl': '',
-    },
-  ];
-
-  List<Map<String, String>> get filteredCommunities {
-    return communities.where((c) {
-      final matchesName = searchQuery.isEmpty ||
-          c['name']!.toLowerCase().contains(searchQuery.toLowerCase());
-      final matchesLocation =
-          selectedLocation == null || c['location'] == selectedLocation;
-      final matchesSport = selectedSport == null || c['sport'] == selectedSport;
-      final matchesSkill = selectedSkill == null || c['skill'] == selectedSkill;
-      return matchesName && matchesLocation && matchesSport && matchesSkill;
-    }).toList();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -146,49 +110,89 @@ class _BrowseCommunityPageState extends State<BrowseCommunityPage> {
               ],
             ),
             SizedBox(height: 16),
-            // Community list
+            // Community list from Firestore
             Expanded(
-              child: filteredCommunities.isEmpty
-                  ? Center(child: Text('No communities found.'))
-                  : ListView.builder(
-                      itemCount: filteredCommunities.length,
-                      itemBuilder: (context, idx) {
-                        final c = filteredCommunities[idx];
-                        return Card(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(16),
+              child: StreamBuilder<QuerySnapshot>(
+                stream:
+                    FirebaseFirestore.instance.collection('club').snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(child: CircularProgressIndicator());
+                  }
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return Center(child: Text('No communities found.'));
+                  }
+                  // Filter Firestore data
+                  final filtered = snapshot.data!.docs.where((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    final matchesName = searchQuery.isEmpty ||
+                        (data['name'] ?? '')
+                            .toString()
+                            .toLowerCase()
+                            .contains(searchQuery.toLowerCase());
+                    final matchesLocation = selectedLocation == null ||
+                        data['location'] == selectedLocation;
+                    final matchesSport =
+                        selectedSport == null || data['sport'] == selectedSport;
+                    final matchesSkill = selectedSkill == null ||
+                        data['skillLevel'] == selectedSkill;
+                    return matchesName &&
+                        matchesLocation &&
+                        matchesSport &&
+                        matchesSkill;
+                  }).toList();
+                  if (filtered.isEmpty) {
+                    return Center(child: Text('No communities found.'));
+                  }
+                  return ListView.builder(
+                    itemCount: filtered.length,
+                    itemBuilder: (context, idx) {
+                      final doc = filtered[idx];
+                      final data = doc.data() as Map<String, dynamic>;
+                      return Card(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        margin: EdgeInsets.only(bottom: 16),
+                        child: ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: Colors.green[200],
+                            backgroundImage: data['imageUrl'] != null &&
+                                    data['imageUrl'] != ''
+                                ? NetworkImage(data['imageUrl'])
+                                : null,
+                            child: (data['imageUrl'] == null ||
+                                    data['imageUrl'] == '')
+                                ? Icon(Icons.sports_tennis,
+                                    color: Colors.green[800])
+                                : null,
                           ),
-                          margin: EdgeInsets.only(bottom: 16),
-                          child: ListTile(
-                            leading: CircleAvatar(
-                              backgroundColor: Colors.green[200],
-                              child: Icon(Icons.sports_tennis,
-                                  color: Colors.green[800]),
-                            ),
-                            title: Text(c['name'] ?? ''),
-                            subtitle: Text(
-                                '${c['location']} • ${c['sport']} • ${c['skill']}'),
-                            trailing: ElevatedButton(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.black,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
+                          title: Text(data['name'] ?? ''),
+                          subtitle: Text(
+                              '${data['location']} • ${data['sport']} • ${data['skillLevel']}'),
+                          trailing: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.black,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
                               ),
-                              onPressed: () {
-                                // TODO: Implement join logic
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                      content: Text('Joined ${c['name']}!')),
-                                );
-                              },
-                              child: Text('Join',
-                                  style: TextStyle(color: Colors.white)),
                             ),
+                            onPressed: () {
+                              // TODO: Implement join logic (add user to members array)
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                    content: Text('Joined ${data['name']}!')),
+                              );
+                            },
+                            child: Text('Join',
+                                style: TextStyle(color: Colors.white)),
                           ),
-                        );
-                      },
-                    ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
             ),
           ],
         ),

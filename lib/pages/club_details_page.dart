@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:map_project/pages/edit_club_page.dart';
+import 'package:map_project/pages/create_event.dart';
+import 'package:map_project/pages/create_post.dart';
 
 class ClubDetailsPage extends StatefulWidget {
   final String clubId;
@@ -97,13 +99,56 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isCreator = widget.clubData['creatorId'] == user.uid;
+    final bool isOwner = widget.clubData['creatorId'] == user.uid;
+    final bool isMember =
+        (widget.clubData['members'] as List).contains(user.uid);
     final DateTime createdAt =
         (widget.clubData['createdAt'] as Timestamp).toDate();
     final String formattedDate = DateFormat('MMMM d, y').format(createdAt);
+    final tabs =
+        isOwner ? ['Events', 'Posts', 'Requests'] : ['Events', 'Posts'];
 
     return Scaffold(
       backgroundColor: Colors.white,
+      floatingActionButton: isMember
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                FloatingActionButton(
+                  heroTag: 'event',
+                  backgroundColor: Colors.black,
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            CreateEventPage(clubId: widget.clubId),
+                      ),
+                    );
+                  },
+                  child: Icon(Icons.event, color: Colors.white),
+                  tooltip: 'Create Event',
+                ),
+                SizedBox(height: 16),
+                FloatingActionButton(
+                  heroTag: 'post',
+                  backgroundColor: Colors.black,
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) =>
+                            CreatePostPage(clubId: widget.clubId),
+                      ),
+                    );
+                  },
+                  child: Icon(Icons.post_add, color: Colors.white),
+                  tooltip: 'Create Post',
+                ),
+              ],
+            )
+          : null,
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
@@ -134,7 +179,7 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                 onPressed: () => Navigator.pop(context),
               ),
               actions: [
-                if (isCreator)
+                if (isOwner)
                   PopupMenuButton<String>(
                     icon: Icon(Icons.more_vert, color: Colors.black),
                     onSelected: (value) async {
@@ -193,15 +238,15 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                       ),
                     ],
                   ),
-                if (!isCreator)
+                if (!isOwner)
                   IconButton(
-                    icon:
-                        Icon(Icons.report_problem_outlined, color: Colors.black),
+                    icon: Icon(Icons.report_problem_outlined,
+                        color: Colors.black),
                     onPressed: _reportClub,
                   ),
               ],
             ),
-        
+
             // Club Info
             SliverToBoxAdapter(
               child: Container(
@@ -232,7 +277,7 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                       ),
                     ),
                     SizedBox(height: 20),
-        
+
                     // Club Stats
                     Container(
                       padding: EdgeInsets.all(16),
@@ -268,7 +313,8 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                           Divider(height: 30, color: Color(0xFFD7F520)),
                           // Creator Info
                           FutureBuilder<String>(
-                            future: _creatorNameFuture, // <-- Ensure this is set!
+                            future:
+                                _creatorNameFuture, // <-- Ensure this is set!
                             builder: (context, snapshot) {
                               if (snapshot.connectionState ==
                                   ConnectionState.waiting) {
@@ -308,11 +354,12 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                               }
                             },
                           ),
-        
+
                           SizedBox(height: 8),
                           Row(
                             children: [
-                              Icon(Icons.calendar_today, color: Colors.grey[700]),
+                              Icon(Icons.calendar_today,
+                                  color: Colors.grey[700]),
                               SizedBox(width: 8),
                               Text(
                                 'Created on: $formattedDate',
@@ -324,9 +371,9 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                       ),
                     ),
                     SizedBox(height: 20),
-        
-                    // Leave Button (if not creator)
-                    if (!isCreator)
+
+                    // Leave Button (if not owner)
+                    if (!isOwner)
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
@@ -364,13 +411,14 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                           child: Text(
                             'Leave Club',
                             style: TextStyle(
-                                color: Colors.white, fontWeight: FontWeight.bold),
+                                color: Colors.white,
+                                fontWeight: FontWeight.bold),
                           ),
                         ),
                       ),
-        
+
                     SizedBox(height: 20),
-        
+
                     // Tabs
                     Container(
                       decoration: BoxDecoration(
@@ -378,25 +426,33 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                         borderRadius: BorderRadius.circular(25),
                       ),
                       child: Row(
-                        children: [
-                          _buildTab('Events', 0),
-                          _buildTab('Posts', 1),
-                        ],
+                        children: List.generate(
+                            tabs.length, (i) => _buildTab(tabs[i], i)),
                       ),
                     ),
                   ],
                 ),
               ),
             ),
-        
+
             // Tab Content
             SliverFillRemaining(
               hasScrollBody: false,
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 32.0),
-                child: _selectedTabIndex == 0
-                    ? _buildEventsTab(widget.clubId)
-                    : _buildPostsTab(widget.clubId),
+                child: Builder(
+                  builder: (context) {
+                    if (_selectedTabIndex == 0) {
+                      return _buildEventsTabWithImages(widget.clubId, isOwner);
+                    } else if (_selectedTabIndex == 1) {
+                      return _buildPostsTabWithImages(widget.clubId, isOwner);
+                    } else if (_selectedTabIndex == 2 && isOwner) {
+                      return _buildRequestsTab(widget.clubId);
+                    } else {
+                      return SizedBox.shrink();
+                    }
+                  },
+                ),
               ),
             ),
           ],
@@ -463,11 +519,13 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
   }
 }
 
-Widget _buildEventsTab(String clubId) {
+Widget _buildEventsTabWithImages(String clubId, bool isOwner) {
   return StreamBuilder<QuerySnapshot>(
     stream: FirebaseFirestore.instance
+        .collection('club')
+        .doc(clubId)
         .collection('events')
-        .where('clubId', isEqualTo: clubId)
+        .orderBy('createdAt', descending: true)
         .snapshots(),
     builder: (context, snapshot) {
       if (snapshot.connectionState == ConnectionState.waiting) {
@@ -481,10 +539,72 @@ Widget _buildEventsTab(String clubId) {
           itemCount: snapshot.data!.docs.length,
           itemBuilder: (context, index) {
             var event = snapshot.data!.docs[index];
-            return ListTile(
-              title: Text(event['title'] ?? 'Untitled'),
-              subtitle: Text(event['description'] ?? 'No description'),
-              leading: Icon(Icons.event),
+            final data = event.data() as Map<String, dynamic>;
+            return Card(
+              margin: EdgeInsets.only(bottom: 16, left: 16, right: 16),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (data['imageUrl'] != null && data['imageUrl'] != '')
+                    ClipRRect(
+                      borderRadius:
+                          BorderRadius.vertical(top: Radius.circular(16)),
+                      child: Image.network(
+                        data['imageUrl'],
+                        height: 180,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ListTile(
+                    leading: Icon(Icons.event),
+                    title: Text(data['content'] ?? 'Untitled'),
+                    subtitle:
+                        Text('Participants: ${data['participants'] ?? '-'}'),
+                    trailing: isOwner &&
+                            data['createdBy'] ==
+                                FirebaseAuth.instance.currentUser?.uid
+                        ? PopupMenuButton<String>(
+                            onSelected: (value) {
+                              // TODO: Implement edit, delete, archive, view participants
+                            },
+                            itemBuilder: (context) => [
+                              PopupMenuItem(
+                                  value: 'edit',
+                                  child: Row(children: [
+                                    Icon(Icons.edit),
+                                    SizedBox(width: 8),
+                                    Text('Edit')
+                                  ])),
+                              PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(children: [
+                                    Icon(Icons.delete),
+                                    SizedBox(width: 8),
+                                    Text('Delete')
+                                  ])),
+                              PopupMenuItem(
+                                  value: 'archive',
+                                  child: Row(children: [
+                                    Icon(Icons.archive),
+                                    SizedBox(width: 8),
+                                    Text('Archive')
+                                  ])),
+                              PopupMenuItem(
+                                  value: 'participants',
+                                  child: Row(children: [
+                                    Icon(Icons.group),
+                                    SizedBox(width: 8),
+                                    Text('View participants')
+                                  ])),
+                            ],
+                          )
+                        : null,
+                  ),
+                ],
+              ),
             );
           },
         );
@@ -493,11 +613,13 @@ Widget _buildEventsTab(String clubId) {
   );
 }
 
-Widget _buildPostsTab(String clubId) {
+Widget _buildPostsTabWithImages(String clubId, bool isOwner) {
   return StreamBuilder<QuerySnapshot>(
     stream: FirebaseFirestore.instance
+        .collection('club')
+        .doc(clubId)
         .collection('posts')
-        .where('clubId', isEqualTo: clubId)
+        .orderBy('createdAt', descending: true)
         .snapshots(),
     builder: (context, snapshot) {
       if (snapshot.connectionState == ConnectionState.waiting) {
@@ -511,14 +633,74 @@ Widget _buildPostsTab(String clubId) {
           itemCount: snapshot.data!.docs.length,
           itemBuilder: (context, index) {
             var post = snapshot.data!.docs[index];
-            return ListTile(
-              title: Text(post['title'] ?? 'Untitled'),
-              subtitle: Text(post['content'] ?? 'No content'),
-              leading: Icon(Icons.article),
+            final data = post.data() as Map<String, dynamic>;
+            return Card(
+              margin: EdgeInsets.only(bottom: 16, left: 16, right: 16),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (data['imageUrl'] != null && data['imageUrl'] != '')
+                    ClipRRect(
+                      borderRadius:
+                          BorderRadius.vertical(top: Radius.circular(16)),
+                      child: Image.network(
+                        data['imageUrl'],
+                        height: 180,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ListTile(
+                    leading: Icon(Icons.article),
+                    title: Text(data['content'] ?? 'Untitled'),
+                    trailing: isOwner &&
+                            data['createdBy'] ==
+                                FirebaseAuth.instance.currentUser?.uid
+                        ? PopupMenuButton<String>(
+                            onSelected: (value) {
+                              // TODO: Implement edit, delete, archive
+                            },
+                            itemBuilder: (context) => [
+                              PopupMenuItem(
+                                  value: 'edit',
+                                  child: Row(children: [
+                                    Icon(Icons.edit),
+                                    SizedBox(width: 8),
+                                    Text('Edit')
+                                  ])),
+                              PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(children: [
+                                    Icon(Icons.delete),
+                                    SizedBox(width: 8),
+                                    Text('Delete')
+                                  ])),
+                              PopupMenuItem(
+                                  value: 'archive',
+                                  child: Row(children: [
+                                    Icon(Icons.archive),
+                                    SizedBox(width: 8),
+                                    Text('Archive')
+                                  ])),
+                            ],
+                          )
+                        : null,
+                  ),
+                ],
+              ),
             );
           },
         );
       }
     },
+  );
+}
+
+Widget _buildRequestsTab(String clubId) {
+  // Placeholder for requests tab. You can implement join requests logic here.
+  return Center(
+    child: Text('Requests tab (for join requests management)'),
   );
 }

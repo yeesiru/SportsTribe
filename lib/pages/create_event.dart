@@ -1,6 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:io';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class CreateEventPage extends StatefulWidget {
+  final String? clubId; // Pass the clubId when navigating to this page
+  CreateEventPage({this.clubId});
   @override
   State<CreateEventPage> createState() => _CreateEventPageState();
 }
@@ -9,6 +16,83 @@ class _CreateEventPageState extends State<CreateEventPage> {
   final _formKey = GlobalKey<FormState>();
   String content = '';
   int participants = 1;
+  File? _eventImage;
+  bool _isLoading = false;
+  bool _isPickingImage = false;
+
+  Future<void> _pickImage() async {
+    if (_isPickingImage) return;
+    setState(() {
+      _isPickingImage = true;
+    });
+    try {
+      final picker = ImagePicker();
+      final picked =
+          await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+      if (picked != null) {
+        setState(() {
+          _eventImage = File(picked.path);
+        });
+      }
+    } finally {
+      setState(() {
+        _isPickingImage = false;
+      });
+    }
+  }
+
+  Future<String?> _uploadImage(File imageFile) async {
+    final ref = FirebaseStorage.instance
+        .ref()
+        .child('event_images')
+        .child('${DateTime.now().millisecondsSinceEpoch}.jpg');
+    await ref.putFile(imageFile);
+    return await ref.getDownloadURL();
+  }
+
+  Future<void> _createEvent() async {
+    if (!_formKey.currentState!.validate()) return;
+    _formKey.currentState!.save();
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null || widget.clubId == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('User not logged in or club not selected.')),
+        );
+        return;
+      }
+      String? imageUrl;
+      if (_eventImage != null) {
+        imageUrl = await _uploadImage(_eventImage!);
+      }
+      await FirebaseFirestore.instance
+          .collection('club')
+          .doc(widget.clubId)
+          .collection('events')
+          .add({
+        'content': content,
+        'participants': participants,
+        'createdBy': user.uid,
+        'createdAt': Timestamp.now(),
+        'imageUrl': imageUrl,
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Event Created!')),
+      );
+      Navigator.pop(context);
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: $e')),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -33,28 +117,40 @@ class _CreateEventPageState extends State<CreateEventPage> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // Image upload area
-                Container(
-                  height: 140,
-                  decoration: BoxDecoration(
-                    color: Color(0xFFF5F7FB),
-                    borderRadius: BorderRadius.circular(24),
-                  ),
-                  child: Stack(
-                    children: [
-                      Center(
-                        child: Icon(Icons.image,
-                            size: 70, color: Color(0xFF4A7AFF)),
-                      ),
-                      Positioned(
-                        right: 12,
-                        top: 12,
-                        child: GestureDetector(
-                          onTap: () {},
-                          child:
-                              Icon(Icons.close, color: Colors.black, size: 28),
+                GestureDetector(
+                  onTap: _pickImage,
+                  child: Container(
+                    height: 140,
+                    decoration: BoxDecoration(
+                      color: Color(0xFFF5F7FB),
+                      borderRadius: BorderRadius.circular(24),
+                    ),
+                    child: Stack(
+                      children: [
+                        Center(
+                          child: _eventImage != null
+                              ? ClipRRect(
+                                  borderRadius: BorderRadius.circular(24),
+                                  child: Image.file(_eventImage!,
+                                      width: double.infinity,
+                                      height: 140,
+                                      fit: BoxFit.cover),
+                                )
+                              : Icon(Icons.image,
+                                  size: 70, color: Color(0xFF4A7AFF)),
                         ),
-                      ),
-                    ],
+                        if (_eventImage != null)
+                          Positioned(
+                            right: 12,
+                            top: 12,
+                            child: GestureDetector(
+                              onTap: () => setState(() => _eventImage = null),
+                              child: Icon(Icons.close,
+                                  color: Colors.black, size: 28),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
                 SizedBox(height: 24),
@@ -127,19 +223,12 @@ class _CreateEventPageState extends State<CreateEventPage> {
                       borderRadius: BorderRadius.circular(30),
                     ),
                   ),
-                  onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      _formKey.currentState!.save();
-                      // TODO: Save event to backend
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Event Created!')),
-                      );
-                      Navigator.pop(context);
-                    }
-                  },
-                  child: Text('Post',
-                      style:
-                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  onPressed: _isLoading ? null : _createEvent,
+                  child: _isLoading
+                      ? CircularProgressIndicator(color: Colors.white)
+                      : Text('Post',
+                          style: TextStyle(
+                              fontSize: 18, fontWeight: FontWeight.bold)),
                 ),
               ],
             ),

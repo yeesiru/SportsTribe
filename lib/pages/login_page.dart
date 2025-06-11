@@ -5,6 +5,7 @@ import 'package:map_project/widgets/password_field.dart';
 import 'package:map_project/widgets/text_field.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:flutter/services.dart';
+import 'package:map_project/pages/admin_dashboard_page.dart';
 
 class LoginPage extends StatefulWidget {
   final VoidCallback showRegisterPage;
@@ -30,11 +31,38 @@ class _LoginPageState extends State<LoginPage> {
       _isLoading = true;
     });
 
+    // Hardcoded admin login
+    if (_emailController.text.trim().toLowerCase() == 'admin@sportstribe.com' &&
+        _passwordController.text == 'admin123') {
+      if (mounted) {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => AdminDashboard()),
+        );
+      }
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+
     try {
-      await FirebaseAuth.instance.signInWithEmailAndPassword(
+      final userCredential =
+          await FirebaseAuth.instance.signInWithEmailAndPassword(
         email: _emailController.text.trim(),
         password: _passwordController.text.trim(),
       );
+      // Admin check: you can change the email below to your admin email
+      if (userCredential.user != null &&
+          _emailController.text.trim().toLowerCase() ==
+              'admin@sportstribe.com') {
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => AdminDashboard()),
+          );
+        }
+      }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

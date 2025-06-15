@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:map_project/services/user_firestore_service.dart';
 import 'package:map_project/widgets/password_field.dart';
 import 'package:map_project/widgets/text_field.dart';
 
@@ -47,9 +48,12 @@ class _RegisterPageState extends State<RegisterPage> {
     }
 
     try {
-      await FirebaseAuth.instance.createUserWithEmailAndPassword(
+      UserCredential userCredential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
           email: _emailController.text.trim(),
           password: _passwordController.text.trim());
+
+      // Add user to Firestore with default role 'member'
+      await UserFirestoreService.addUserToFirestore(userCredential.user!);
 
       // Show success message
       ScaffoldMessenger.of(context).showSnackBar(
@@ -57,8 +61,7 @@ class _RegisterPageState extends State<RegisterPage> {
           content: Text('Registration successful!'),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
-          margin:
-              EdgeInsets.only(bottom: 20.0, left: 20.0, right: 20.0, top: 40.0),
+          margin: EdgeInsets.only(bottom: 20.0, left: 20.0, right: 20.0, top: 40.0),
         ),
       );
 

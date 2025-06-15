@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'package:map_project/pages/edit_club_page.dart';
+import 'package:map_project/pages/manage_requests_page.dart';
 
 class ClubDetailsPage extends StatefulWidget {
   final String clubId;
@@ -23,6 +24,20 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
   int _selectedTabIndex = 0;
 
   late Future<String> _creatorNameFuture;
+  bool get isUserMember =>
+      (widget.clubData['members'] as List?)?.contains(user.uid) ?? false;
+  
+  bool get isPrivateClub => widget.clubData['isPrivate'] ?? false;
+  
+  Future<bool> get hasPendingRequest async {
+    final doc = await FirebaseFirestore.instance
+        .collection('joinRequests')
+        .where('clubId', isEqualTo: widget.clubId)
+        .where('userId', isEqualTo: user.uid)
+        .where('status', isEqualTo: 'pending')
+        .get();
+    return doc.docs.isNotEmpty;
+  }
 
   Future<String> _getCreatorName() async {
     try {
@@ -68,6 +83,105 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
       }
     }
   }
+  // Removed unused _joinClub method as joining is now handled directly in the button handler
+
+  Future<void> _requestToJoin() async {
+    try {
+      await FirebaseFirestore.instance.collection('joinRequests').add({
+        'clubId': widget.clubId,
+        'userId': user.uid,
+        'createdAt': FieldValue.serverTimestamp(),
+        'status': 'pending',
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Request sent! Waiting for approval.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error sending request: $e')),
+        );
+      }
+    }
+  }
+
+  // Show members list
+  void _showMembersList() async {
+    final members = widget.clubData['members'] as List? ?? [];
+    if (members.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('No members yet')),
+      );
+      return;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Community Members'),
+        content: Container(
+          width: double.maxFinite,
+          child: FutureBuilder<List<Map<String, dynamic>>>(
+            future: Future.wait(
+              members.map((memberId) async {
+                final doc = await FirebaseFirestore.instance
+                    .collection('users')
+                    .doc(memberId)
+                    .get();
+                return {
+                  'id': memberId,
+                  'name': doc.data()?['name'] ?? 'Unknown',
+                  'photoUrl': doc.data()?['photoUrl'],
+                };
+              }),
+            ),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return Center(child: CircularProgressIndicator());
+              }
+              if (!snapshot.hasData) {
+                return Text('No members found');
+              }
+
+              return ListView.builder(
+                shrinkWrap: true,
+                itemCount: snapshot.data!.length,
+                itemBuilder: (context, index) {
+                  final member = snapshot.data![index];
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundImage: member['photoUrl'] != null
+                          ? NetworkImage(member['photoUrl'])
+                          : null,
+                      child: member['photoUrl'] == null
+                          ? Icon(Icons.person)
+                          : null,
+                    ),
+                    title: Text(member['name']),
+                    trailing: member['id'] == widget.clubData['creatorId']
+                        ? Chip(
+                            label: Text('Creator'),
+                            backgroundColor: Color(0xFFD7F520),
+                          )
+                        : null,
+                  );
+                },
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
 
   void _reportClub() {
     showDialog(
@@ -98,307 +212,392 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
   @override
   Widget build(BuildContext context) {
     final bool isCreator = widget.clubData['creatorId'] == user.uid;
-    final DateTime createdAt =
-        (widget.clubData['createdAt'] as Timestamp).toDate();
+    final DateTime createdAt = (widget.clubData['createdAt'] as Timestamp).toDate();
     final String formattedDate = DateFormat('MMMM d, y').format(createdAt);
 
     return Scaffold(
       backgroundColor: Colors.white,
       body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            // Club Header
-            SliverAppBar(
-              expandedHeight: 200,
-              pinned: true,
-              backgroundColor: Color(0xFFD7F520),
-              flexibleSpace: FlexibleSpaceBar(
-                background: Center(
-                  child: widget.clubData['imageUrl'] != null
-                      ? CircleAvatar(
-                          radius: 70,
-                          backgroundImage:
-                              NetworkImage(widget.clubData['imageUrl']),
-                          backgroundColor: Colors.white,
-                        )
-                      : CircleAvatar(
-                          radius: 70,
-                          backgroundColor: Colors.grey[200],
-                          child: Icon(Icons.sports_tennis,
-                              size: 50, color: Colors.grey[400]),
-                        ),
-                ),
-              ),
-              leading: IconButton(
-                icon: Icon(Icons.arrow_back, color: Colors.black),
-                onPressed: () => Navigator.pop(context),
-              ),
-              actions: [
-                if (isCreator)
-                  PopupMenuButton<String>(
-                    icon: Icon(Icons.more_vert, color: Colors.black),
-                    onSelected: (value) async {
-                      if (value == 'edit') {
-                        final result = await Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => EditClubPage(
-                              clubId: widget.clubId,
-                              clubData: widget.clubData,
+        child: Stack(
+          children: [
+            CustomScrollView(
+              slivers: [
+                // Club Header
+                SliverAppBar(
+                  expandedHeight: 200,
+                  pinned: true,
+                  backgroundColor: Color(0xFFD7F520),
+                  flexibleSpace: FlexibleSpaceBar(
+                    background: Center(
+                      child: widget.clubData['imageUrl'] != null
+                          ? CircleAvatar(
+                              radius: 70,
+                              backgroundImage:
+                                  NetworkImage(widget.clubData['imageUrl']),
+                              backgroundColor: Colors.white,
+                            )
+                          : CircleAvatar(
+                              radius: 70,
+                              backgroundColor: Colors.grey[200],
+                              child: Icon(Icons.sports_tennis,
+                                  size: 50, color: Colors.grey[400]),
                             ),
-                          ),
-                        );
-                        // Refresh the page if club was updated
-                        if (result == true && mounted) {
-                          setState(() {});
-                        }
-                      } else if (value == 'delete') {
-                        final confirm = await showDialog<bool>(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: Text('Delete Club'),
-                            content: Text(
-                                'Are you sure you want to delete this club? This action cannot be undone.'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, false),
-                                child: Text('Cancel'),
-                              ),
-                              TextButton(
-                                onPressed: () => Navigator.pop(context, true),
-                                child: Text('Delete',
-                                    style: TextStyle(color: Colors.red)),
-                              ),
-                            ],
-                          ),
-                        );
-                        if (confirm == true) {
-                          await FirebaseFirestore.instance
-                              .collection('club')
-                              .doc(widget.clubId)
-                              .delete();
-                          if (mounted) Navigator.of(context).pop();
-                        }
-                      }
-                    },
-                    itemBuilder: (context) => [
-                      PopupMenuItem(
-                        value: 'edit',
-                        child: Text('Edit Club'),
-                      ),
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Text('Delete Club',
-                            style: TextStyle(color: Colors.red)),
-                      ),
-                    ],
+                    ),
                   ),
-                if (!isCreator)
-                  IconButton(
-                    icon:
-                        Icon(Icons.report_problem_outlined, color: Colors.black),
-                    onPressed: _reportClub,
+                  leading: IconButton(
+                    icon: Icon(Icons.arrow_back, color: Colors.black),
+                    onPressed: () => Navigator.pop(context),
                   ),
-              ],
-            ),
-        
-            // Club Info
-            SliverToBoxAdapter(
-              child: Container(
-                margin: EdgeInsets.only(top: 0, left: 0, right: 0, bottom: 0),
-                padding: EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius:
-                      BorderRadius.vertical(bottom: Radius.circular(30)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.white.withOpacity(0.15),
-                      blurRadius: 10,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Club Title
-                    Text(
-                      widget.clubData['name'] ?? 'Club Name',
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87,
-                      ),
-                    ),
-                    SizedBox(height: 20),
-        
-                    // Club Stats
-                    Container(
-                      padding: EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Color(0xFFD7F520).withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Column(
-                        children: [
-                          // Club Details Row
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
-                            children: [
-                              _buildStatItem(
-                                icon: Icons.group,
-                                label: 'Members',
-                                value: (widget.clubData['members'] as List)
-                                    .length
-                                    .toString(),
+                  actions: [
+                    if (isCreator)
+                      PopupMenuButton<String>(
+                        icon: Icon(Icons.more_vert, color: Colors.black),
+                        onSelected: (value) async {                          if (value == 'edit') {
+                            final result = await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => EditClubPage(
+                                  clubId: widget.clubId,
+                                  clubData: widget.clubData,
+                                ),
                               ),
-                              _buildStatItem(
-                                icon: Icons.sports,
-                                label: 'Sport',
-                                value: widget.clubData['sport'] ?? 'N/A',
+                            );
+                            // Refresh the page if club was updated
+                            if (result == true && mounted) {
+                              setState(() {});
+                            }
+                          } else if (value == 'requests') {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ManageRequestsPage(
+                                  clubId: widget.clubId,
+                                  clubData: widget.clubData,
+                                ),
                               ),
-                              _buildStatItem(
-                                icon: Icons.grade,
-                                label: 'Level',
-                                value: widget.clubData['skillLevel'] ?? 'N/A',
-                              ),
-                            ],
-                          ),
-                          Divider(height: 30, color: Color(0xFFD7F520)),
-                          // Creator Info
-                          FutureBuilder<String>(
-                            future: _creatorNameFuture, // <-- Ensure this is set!
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.waiting) {
-                                return Row(
-                                  children: [
-                                    Icon(Icons.person_outline,
-                                        color: Colors.grey[700]),
-                                    SizedBox(width: 8),
-                                    Text('Loading...',
-                                        style:
-                                            TextStyle(color: Colors.grey[700])),
-                                  ],
-                                );
-                              } else if (snapshot.hasError) {
-                                return Row(
-                                  children: [
-                                    Icon(Icons.person_outline,
-                                        color: Colors.grey[700]),
-                                    SizedBox(width: 8),
-                                    Text('Error fetching creator',
-                                        style:
-                                            TextStyle(color: Colors.grey[700])),
-                                  ],
-                                );
-                              } else {
-                                return Row(
-                                  children: [
-                                    Icon(Icons.person_outline,
-                                        color: Colors.grey[700]),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'Created by: ${snapshot.data}',
-                                      style: TextStyle(color: Colors.grey[700]),
-                                    ),
-                                  ],
-                                );
-                              }
-                            },
-                          ),
-        
-                          SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Icon(Icons.calendar_today, color: Colors.grey[700]),
-                              SizedBox(width: 8),
-                              Text(
-                                'Created on: $formattedDate',
-                                style: TextStyle(color: Colors.grey[700]),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 20),
-        
-                    // Leave Button (if not creator)
-                    if (!isCreator)
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: () {
-                            showDialog(
+                            );
+                          } else if (value == 'delete') {
+                            final confirm = await showDialog<bool>(
                               context: context,
-                              builder: (_) => AlertDialog(
-                                title: Text('Leave Club'),
+                              builder: (context) => AlertDialog(
+                                title: Text('Delete Club'),
                                 content: Text(
-                                    'Are you sure you want to leave this club?'),
+                                    'Are you sure you want to delete this club? This action cannot be undone.'),
                                 actions: [
                                   TextButton(
-                                    onPressed: () => Navigator.pop(context),
+                                    onPressed: () => Navigator.pop(context, false),
                                     child: Text('Cancel'),
                                   ),
                                   TextButton(
-                                    onPressed: () {
-                                      _leaveClub();
-                                    },
-                                    child: Text('Leave',
+                                    onPressed: () => Navigator.pop(context, true),
+                                    child: Text('Delete',
                                         style: TextStyle(color: Colors.red)),
                                   ),
                                 ],
                               ),
                             );
-                          },
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.red,
-                            padding: EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
+                            if (confirm == true) {
+                              await FirebaseFirestore.instance
+                                  .collection('club')
+                                  .doc(widget.clubId)
+                                  .delete();
+                              if (mounted) Navigator.of(context).pop();
+                            }
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          PopupMenuItem(
+                            value: 'edit',
+                            child: Text('Edit Club'),
+                          ),
+                          if (isPrivateClub)
+                            PopupMenuItem(
+                              value: 'requests',
+                              child: Text('Manage Requests'),
                             ),
-                            elevation: 0,
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: Text('Delete Club',
+                                style: TextStyle(color: Colors.red)),
                           ),
-                          child: Text(
-                            'Leave Club',
-                            style: TextStyle(
-                                color: Colors.white, fontWeight: FontWeight.bold),
-                          ),
-                        ),
-                      ),
-        
-                    SizedBox(height: 20),
-        
-                    // Tabs
-                    Container(
-                      decoration: BoxDecoration(
-                        color: Color(0xFFD7F520).withOpacity(0.25),
-                        borderRadius: BorderRadius.circular(25),
-                      ),
-                      child: Row(
-                        children: [
-                          _buildTab('Events', 0),
-                          _buildTab('Posts', 1),
                         ],
                       ),
-                    ),
+                    if (!isCreator)
+                      IconButton(
+                        icon:
+                            Icon(Icons.report_problem_outlined, color: Colors.black),
+                        onPressed: _reportClub,
+                      ),
                   ],
                 ),
-              ),
-            ),
         
-            // Tab Content
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 32.0),
-                child: _selectedTabIndex == 0
-                    ? _buildEventsTab(widget.clubId)
-                    : _buildPostsTab(widget.clubId),
-              ),
+                // Club Info
+                SliverToBoxAdapter(
+                  child: Container(
+                    padding: EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Club Title
+                        Text(
+                          widget.clubData['name'] ?? 'Club Name',
+                          style: TextStyle(
+                            fontSize: 28,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        if (isPrivateClub)
+                          Padding(
+                            padding: EdgeInsets.only(top: 8),
+                            child: Row(
+                              children: [
+                                Icon(Icons.lock, size: 16, color: Colors.grey[600]),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Private Community',
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        SizedBox(height: 20),
+        
+                        // Club Stats with clickable members
+                        Container(
+                          padding: EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Color(0xFFD7F520).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
+                            children: [
+                              // Club Details Row
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                children: [
+                                  // Members count (clickable)
+                                  GestureDetector(
+                                    onTap: _showMembersList,
+                                    child: _buildStatItem(
+                                      icon: Icons.group,
+                                      label: 'Members',
+                                      value: (widget.clubData['members'] as List).length.toString(),
+                                      isClickable: true,
+                                    ),
+                                  ),
+                                  // Other stats
+                                  _buildStatItem(
+                                    icon: Icons.sports,
+                                    label: 'Sport',
+                                    value: widget.clubData['sport'] ?? 'N/A',
+                                  ),
+                                  _buildStatItem(
+                                    icon: Icons.grade,
+                                    label: 'Level',
+                                    value: widget.clubData['skillLevel'] ?? 'N/A',
+                                  ),
+                                ],
+                              ),
+                              Divider(height: 30, color: Color(0xFFD7F520)),
+                              // Creator Info
+                              FutureBuilder<String>(
+                                future: _creatorNameFuture, // <-- Ensure this is set!
+                                builder: (context, snapshot) {
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return Row(
+                                      children: [
+                                        Icon(Icons.person_outline,
+                                            color: Colors.grey[700]),
+                                        SizedBox(width: 8),
+                                        Text('Loading...',
+                                            style:
+                                                TextStyle(color: Colors.grey[700])),
+                                      ],
+                                    );
+                                  } else if (snapshot.hasError) {
+                                    return Row(
+                                      children: [
+                                        Icon(Icons.person_outline,
+                                            color: Colors.grey[700]),
+                                        SizedBox(width: 8),
+                                        Text('Error fetching creator',
+                                            style:
+                                                TextStyle(color: Colors.grey[700])),
+                                      ],
+                                    );
+                                  } else {
+                                    return Row(
+                                      children: [
+                                        Icon(Icons.person_outline,
+                                            color: Colors.grey[700]),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Created by: ${snapshot.data}',
+                                          style: TextStyle(color: Colors.grey[700]),
+                                        ),
+                                      ],
+                                    );
+                                  }
+                                },
+                              ),
+        
+                              SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Icon(Icons.calendar_today, color: Colors.grey[700]),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Created on: $formattedDate',
+                                    style: TextStyle(color: Colors.grey[700]),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                        SizedBox(height: 20),
+        
+                        // Join/Leave Button
+                        if (!isCreator)
+                          FutureBuilder<bool>(
+                            future: hasPendingRequest,
+                            builder: (context, snapshot) {
+                              final isPending = snapshot.data ?? false;
+                              
+                              return SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: isUserMember
+                                      ? () {
+                                          showDialog(
+                                            context: context,
+                                            builder: (_) => AlertDialog(
+                                              title: Text('Leave Community'),
+                                              content: Text(
+                                                  'Are you sure you want to leave this community?'),
+                                              actions: [
+                                                TextButton(
+                                                  onPressed: () => Navigator.pop(context),
+                                                  child: Text('Cancel'),
+                                                ),
+                                                TextButton(
+                                                  onPressed: () {
+                                                    _leaveClub();
+                                                  },
+                                                  child: Text('Leave',
+                                                      style: TextStyle(color: Colors.red)),
+                                                ),
+                                              ],
+                                            ),
+                                          );
+                                        }
+                                      : isPending
+                                          ? null
+                                          : isPrivateClub
+                                              ? _requestToJoin
+                                              : () async {
+                                                  await FirebaseFirestore.instance
+                                                      .collection('club')
+                                                      .doc(widget.clubId)
+                                                      .update({
+                                                    'members':
+                                                        FieldValue.arrayUnion([user.uid])
+                                                  });
+
+                                                  if (mounted) {
+                                                    ScaffoldMessenger.of(context)
+                                                        .showSnackBar(
+                                                      SnackBar(
+                                                          content: Text(
+                                                              'Successfully joined the community!')),
+                                                    );
+                                                    Navigator.of(context).pop();
+                                                  }
+                                                },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: isUserMember
+                                        ? Colors.red
+                                        : isPending
+                                            ? Colors.grey[400]
+                                            : Color(0xFFD7F520),
+                                    padding: EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    elevation: 0,
+                                  ),
+                                  child: Text(
+                                    isUserMember
+                                        ? 'Leave Community'
+                                        : isPending
+                                            ? 'Request Pending'
+                                            : isPrivateClub
+                                                ? 'Request to Join'
+                                                : 'Join Community',
+                                    style: TextStyle(
+                                      color: isUserMember || isPending
+                                          ? Colors.white
+                                          : Colors.black87,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+        
+                        SizedBox(height: 20),
+        
+                        // Tabs
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Color(0xFFD7F520).withOpacity(0.25),
+                            borderRadius: BorderRadius.circular(25),
+                          ),
+                          child: Row(
+                            children: [
+                              _buildTab('Events', 0),
+                              _buildTab('Posts', 1),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+        
+                // Tab Content
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 32.0),
+                    child: _selectedTabIndex == 0
+                        ? _buildEventsTab(widget.clubId)
+                        : _buildPostsTab(widget.clubId),
+                  ),
+                ),
+              ],
             ),
+            // Positioned(
+            //   top: 0,
+            //   left: 0,
+            //   right: 0,
+            //   child: Container(
+            //     height: 200,
+            //     decoration: BoxDecoration(
+            //       gradient: LinearGradient(
+            //         colors: [Color(0xFFD7F520), Colors.white],
+            //         begin: Alignment.topCenter,
+            //         end: Alignment.bottomCenter,
+            //       ),
+            //     ),
+            //   ),
+            // ),
           ],
         ),
       ),
@@ -409,6 +608,7 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
     required IconData icon,
     required String label,
     required String value,
+    bool isClickable = false,
   }) {
     return Column(
       children: [
@@ -424,6 +624,7 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
             fontSize: 16,
             fontWeight: FontWeight.bold,
             color: Colors.black87,
+            decoration: isClickable ? TextDecoration.underline : null,
           ),
         ),
         Text(
@@ -431,8 +632,18 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
           style: TextStyle(
             color: Colors.grey[700],
             fontSize: 12,
+            decoration: isClickable ? TextDecoration.underline : null,
           ),
         ),
+        if (isClickable)
+          Text(
+            'Click to view',
+            style: TextStyle(
+              color: Colors.grey[600],
+              fontSize: 10,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
       ],
     );
   }

@@ -6,6 +6,7 @@ import 'package:map_project/pages/profile_page.dart';
 import 'package:map_project/pages/chat_page.dart';
 import 'package:map_project/pages/leaderboard_page.dart';
 import 'package:map_project/pages/club_details_page.dart';
+import 'package:map_project/pages/browse_clubs_page.dart';
 
 class HomePage extends StatefulWidget {
   final int initialTabIndex;
@@ -259,11 +260,15 @@ class _HomePageState extends State<HomePage> {
                         },
                       ),
                       SizedBox(width: 10),
-                      // Join community column (static)
+                      // Join community column (static)                      
                       GestureDetector(
                         onTap: () {
-                          // Navigate to your community browse/join page here
-                          // Example: Navigator.push(context, MaterialPageRoute(builder: (_) => CommunityBrowsePage()));
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => BrowseClubsPage(),
+                            ),
+                          );
                         },
                         child: Column(
                           children: [

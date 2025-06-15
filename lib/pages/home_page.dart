@@ -6,7 +6,9 @@ import 'package:map_project/pages/profile_page.dart';
 import 'package:map_project/pages/chat_page.dart';
 import 'package:map_project/pages/leaderboard_page.dart';
 import 'package:map_project/pages/club_details_page.dart';
-import 'package:map_project/pages/browse_clubs_page.dart';
+import 'package:map_project/pages/create_event.dart';
+import 'package:map_project/pages/create_post.dart';
+import 'package:map_project/pages/browse_community.dart';
 
 class HomePage extends StatefulWidget {
   final int initialTabIndex;
@@ -25,14 +27,87 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   late int _currentTabIndex; // 0 = home, 1 = chat, 2 = leaderboard, 3 = profile
 
-  //Fetch club where creatorID match userID
+  // Fetch club where creatorID match userID
   Stream<QuerySnapshot> getUserRelatedClubs() {
-  final uid = user.uid;
-  return FirebaseFirestore.instance
-      .collection('club')
-      .where('members', arrayContains: uid)
-      .snapshots();
-}
+    final uid = user.uid;
+    return FirebaseFirestore.instance
+        .collection('club')
+        .where('members', arrayContains: uid)
+        .snapshots();
+  }
+
+  // Fetch all public and user clubs
+  Future<List<String>> _getRelevantClubIds() async {
+    final uid = user.uid;
+    final userClubsSnap = await FirebaseFirestore.instance
+        .collection('club')
+        .where('members', arrayContains: uid)
+        .get();
+    final publicClubsSnap = await FirebaseFirestore.instance
+        .collection('club')
+        .where('isPrivate', isEqualTo: false)
+        .get();
+    final userClubIds = userClubsSnap.docs.map((doc) => doc.id).toSet();
+    final publicClubIds = publicClubsSnap.docs.map((doc) => doc.id).toSet();
+    return {...userClubIds, ...publicClubIds}.toList();
+  }
+
+  Future<List<Map<String, dynamic>>> _getAllClubItems(
+      {required bool isEvent}) async {
+    final clubIds = await _getRelevantClubIds();
+    List<Map<String, dynamic>> allItems = [];
+    for (final clubId in clubIds) {
+      final snap = await FirebaseFirestore.instance
+          .collection('club')
+          .doc(clubId)
+          .collection(isEvent ? 'events' : 'posts')
+          .orderBy('createdAt', descending: true)
+          .get();
+      for (final doc in snap.docs) {
+        final data = doc.data();
+        data['clubId'] = clubId;
+        data['id'] = doc.id;
+        allItems.add(data);
+      }
+    }
+    return allItems;
+  }
+
+  Widget _buildEventsOrPostsTab(bool isEvent) {
+    return FutureBuilder<List<Map<String, dynamic>>>(
+      future: _getAllClubItems(isEvent: isEvent),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        }
+        final items = snapshot.data ?? [];
+        if (items.isEmpty) {
+          return Center(
+              child: Text(isEvent ? 'No events found.' : 'No posts found.'));
+        }
+        return ListView.builder(
+          itemCount: items.length,
+          itemBuilder: (context, idx) {
+            final data = items[idx];
+            return Card(
+              margin: EdgeInsets.symmetric(horizontal: 15, vertical: 8),
+              child: ListTile(
+                leading: data['imageUrl'] != null && data['imageUrl'] != ''
+                    ? CircleAvatar(
+                        backgroundImage: NetworkImage(data['imageUrl']))
+                    : CircleAvatar(
+                        child: Icon(isEvent ? Icons.event : Icons.article)),
+                title: Text(data['content'] ?? ''),
+                subtitle: Text(data['createdAt'] != null
+                    ? (data['createdAt'] as Timestamp).toDate().toString()
+                    : ''),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 
   @override
   void initState() {
@@ -83,6 +158,25 @@ class _HomePageState extends State<HomePage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          if (_selectedIndex == 0) {
+            // Navigate to Create Event page
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => CreateEventPage()),
+            );
+          } else {
+            // Navigate to Create Post page
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => CreatePostPage()),
+            );
+          }
+        },
+        backgroundColor: Colors.black,
+        child: Icon(Icons.add, color: Colors.white),
+      ),
       body: Column(
         children: [
           Container(
@@ -207,7 +301,8 @@ class _HomePageState extends State<HomePage> {
                       StreamBuilder<QuerySnapshot>(
                         stream: getUserRelatedClubs(),
                         builder: (context, snapshot) {
-                          if (snapshot.connectionState == ConnectionState.waiting) {
+                          if (snapshot.connectionState ==
+                              ConnectionState.waiting) {
                             return Padding(
                               padding: const EdgeInsets.only(right: 16.0),
                               child: CircleAvatar(
@@ -216,74 +311,114 @@ class _HomePageState extends State<HomePage> {
                                 child: CircularProgressIndicator(),
                               ),
                             );
-                          }   
-                          // Show all clubs the user is related to
-                          return Row(
-                            children: snapshot.data!.docs.map((doc) {
-                              final club = doc.data() as Map<String, dynamic>;
-                              return GestureDetector(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => ClubDetailsPage(
-                                        clubId: doc.id,
-                                        clubData: club,
+                          }
+                          if (snapshot.data == null ||
+                              snapshot.data!.docs.isEmpty) {
+                            // No communities joined, show only Join Community
+                            return Row(
+                              children: [
+                                GestureDetector(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            BrowseCommunityPage(),
                                       ),
-                                    ),
-                                  );
-                                },
-                                child: Padding(
-                                  padding: const EdgeInsets.only(right: 16.0),
+                                    );
+                                  },
                                   child: Column(
                                     children: [
                                       CircleAvatar(
                                         radius: 30,
-                                        backgroundColor: Colors.green[200],
-                                        backgroundImage: club['imageUrl'] != null
-                                            ? NetworkImage(club['imageUrl'])
-                                            : null,
-                                        child: club['imageUrl'] == null
-                                            ? Icon(Icons.sports_tennis,
-                                                color: Colors.green[800])
-                                            : null,
+                                        backgroundColor: Colors.grey[200],
+                                        child: Icon(Icons.group_add,
+                                            color: Colors.grey[800]),
                                       ),
                                       SizedBox(height: 8),
-                                      Text(club['name'] ?? 'My Club',
+                                      Text('Join community',
                                           style: TextStyle(fontSize: 12)),
                                     ],
                                   ),
                                 ),
-                              );
-                            }).toList(),
+                                SizedBox(width: 10),
+                                Icon(Icons.chevron_right),
+                              ],
+                            );
+                          }
+                          // Show all clubs the user is related to
+                          return Row(
+                            children: [
+                              ...snapshot.data!.docs.map((doc) {
+                                final club = doc.data() as Map<String, dynamic>;
+                                return GestureDetector(
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => ClubDetailsPage(
+                                          clubId: doc.id,
+                                          clubData: club,
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(right: 16.0),
+                                    child: Column(
+                                      children: [
+                                        CircleAvatar(
+                                          radius: 30,
+                                          backgroundColor: Colors.green[200],
+                                          backgroundImage: club['imageUrl'] !=
+                                                  null
+                                              ? NetworkImage(club['imageUrl'])
+                                              : null,
+                                          child: club['imageUrl'] == null
+                                              ? Icon(Icons.sports_tennis,
+                                                  color: Colors.green[800])
+                                              : null,
+                                        ),
+                                        SizedBox(height: 8),
+                                        Text(club['name'] ?? 'My Club',
+                                            style: TextStyle(fontSize: 12)),
+                                      ],
+                                    ),
+                                  ),
+                                );
+                              }).toList(),
+                              SizedBox(width: 10),
+                              // Join community column (static)
+                              GestureDetector(
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          BrowseCommunityPage(),
+                                    ),
+                                  );
+                                },
+                                child: Column(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 30,
+                                      backgroundColor: Colors.grey[200],
+                                      child: Icon(Icons.group_add,
+                                          color: Colors.grey[800]),
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text('Join community',
+                                        style: TextStyle(fontSize: 12)),
+                                  ],
+                                ),
+                              ),
+                              SizedBox(width: 10),
+                              Icon(Icons.chevron_right),
+                            ],
                           );
                         },
                       ),
-                      SizedBox(width: 10),
-                      // Join community column (static)                      
-                      GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => BrowseClubsPage(),
-                            ),
-                          );
-                        },
-                        child: Column(
-                          children: [
-                            CircleAvatar(
-                              radius: 30,
-                              backgroundColor: Colors.grey[200],
-                              child: Icon(Icons.group_add, color: Colors.grey[800]),
-                            ),
-                            SizedBox(height: 8),
-                            Text('Join community', style: TextStyle(fontSize: 12)),
-                          ],
-                        ),
-                      ),
-                      Spacer(),
-                      Icon(Icons.chevron_right),
                     ],
                   ),
                 ),
@@ -350,115 +485,11 @@ class _HomePageState extends State<HomePage> {
               ],
             ),
           ),
-
-          if (_selectedIndex == 0)
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.symmetric(horizontal: 15),
-                children: [
-                  Container(
-                    margin: EdgeInsets.only(bottom: 15),
-                    padding: EdgeInsets.all(15),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(15),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 20,
-                              backgroundColor: Colors.green[200],
-                              child: Icon(Icons.sports_tennis,
-                                  color: Colors.green[800], size: 20),
-                            ),
-                            SizedBox(width: 10),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text('Badminton Squad',
-                                    style:
-                                        TextStyle(fontWeight: FontWeight.bold)),
-                                Text('25 mins ago',
-                                    style: TextStyle(
-                                        color: Colors.grey, fontSize: 12)),
-                              ],
-                            ),
-                            Spacer(),
-                            Icon(Icons.more_vert),
-                          ],
-                        ),
-                        SizedBox(height: 15),
-                        RichText(
-                          text: TextSpan(
-                            style: TextStyle(color: Colors.black, fontSize: 16),
-                            children: [
-                              TextSpan(
-                                text: '🏸 Badminton Day! ',
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                            ],
-                          ),
-                        ),
-                        SizedBox(height: 5),
-                        Text('Join us for a day of smashes, rallies, and fun!'),
-                        SizedBox(height: 5),
-                        Text('📅 Date: 8 April 2025'),
-                        Text('📍 Venue: Impian Emas Badminton Hall'),
-                        Text('🎮 Categories: Singles, Doubles & Mixed'),
-                        SizedBox(height: 5),
-                        Wrap(
-                          spacing: 5,
-                          children: [
-                            Container(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(5),
-                              ),
-                              child: Text('#Badminton',
-                                  style: TextStyle(color: Colors.blue)),
-                            ),
-                            Container(
-                              padding: EdgeInsets.symmetric(
-                                  horizontal: 8, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.blue.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(5),
-                              ),
-                              child: Text('#ShuttleSmash',
-                                  style: TextStyle(color: Colors.blue)),
-                            ),
-                          ],
-                        ),
-                        SizedBox(height: 15),
-                        ElevatedButton(
-                          onPressed: () {},
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.black,
-                            minimumSize: Size(100, 40),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                          ),
-                          child: Text('Join',
-                              style: TextStyle(color: Colors.white)),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
-            Expanded(
-              child: Center(
-                child: Text('Posts tab content'),
-              ),
-            ),
+          Expanded(
+            child: _selectedIndex == 0
+                ? _buildEventsOrPostsTab(true)
+                : _buildEventsOrPostsTab(false),
+          ),
         ],
       ),
       bottomNavigationBar: Container(

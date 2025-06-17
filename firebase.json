@@ -1,0 +1,37 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "sportstribe-12549",
+          "appId": "1:410776202310:android:b3a437bc07e28319016e47",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "sportstribe-12549",
+          "configurations": {
+            "android": "1:410776202310:android:b3a437bc07e28319016e47",
+            "ios": "1:410776202310:ios:e66b744ec531a182016e47",
+            "macos": "1:410776202310:ios:e66b744ec531a182016e47",
+            "web": "1:410776202310:web:d949fbc9ade45018016e47",
+            "windows": "1:410776202310:web:e0b2db9eca7bc7fb016e47"
+          }
+        }
+      }
+    }
+  },
+  "emulators": {
+    "auth": {
+      "port": 9099
+    },
+    "firestore": {
+      "port": 8080
+    },
+    "ui": {
+      "enabled": true
+    },
+    "singleProjectMode": true
+  }
+}

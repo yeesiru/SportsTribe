@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:map_project/services/user_firestore_service.dart';
 import 'package:map_project/widgets/password_field.dart';
 import 'package:map_project/widgets/text_field.dart';
 
@@ -18,6 +19,7 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _confirmPasswordController =
       TextEditingController();
   bool _isLoading = false;
+  final userService = UserFirestoreService();
 
   @override
   void dispose() {
@@ -47,29 +49,36 @@ class _RegisterPageState extends State<RegisterPage> {
     }
 
     try {
+      // Create user with email and password
       await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: _emailController.text.trim(),
-          password: _passwordController.text.trim());
-
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Registration successful!'),
-          backgroundColor: Colors.green,
-          behavior: SnackBarBehavior.floating,
-          margin:
-              EdgeInsets.only(bottom: 20.0, left: 20.0, right: 20.0, top: 40.0),
-        ),
+        email: _emailController.text.trim(),
+        password: _passwordController.text.trim(),
       );
 
-      // Delay to allow user to see the success message before redirecting
-      Future.delayed(const Duration(seconds: 1), () {
-        // Navigate to login page
-        widget.showLoginPage();
-      });
+      // Get the current user
+      final User? user = FirebaseAuth.instance.currentUser;      if (user != null) {
+        print('User registered successfully: ${user.uid}');
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Registration successful! Please complete your profile.'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        
+        // The MainPage's StreamBuilder will automatically detect the authenticated user
+        // and redirect to ProfileSetupPage since the profile is not yet complete
+      } else {
+        print('Failed to retrieve current user after registration');
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Registration failed. Please try again.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } on FirebaseAuthException catch (e) {
       String errorMessage = 'An error occurred during registration';
-
       if (e.code == 'weak-password') {
         errorMessage = 'The password provided is too weak';
       } else if (e.code == 'email-already-in-use') {
@@ -77,14 +86,10 @@ class _RegisterPageState extends State<RegisterPage> {
       } else if (e.code == 'invalid-email') {
         errorMessage = 'Invalid email format';
       }
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(errorMessage),
           backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          margin:
-              EdgeInsets.only(bottom: 20.0, left: 20.0, right: 20.0, top: 40.0),
         ),
       );
     } catch (e) {
@@ -92,13 +97,9 @@ class _RegisterPageState extends State<RegisterPage> {
         SnackBar(
           content: Text('Error: ${e.toString()}'),
           backgroundColor: Colors.red,
-          behavior: SnackBarBehavior.floating,
-          margin:
-              EdgeInsets.only(bottom: 20.0, left: 20.0, right: 20.0, top: 40.0),
         ),
       );
     } finally {
-      // Set loading to false whether successful or not
       if (mounted) {
         setState(() {
           _isLoading = false;

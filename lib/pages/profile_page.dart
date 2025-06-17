@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:map_project/pages/main_page.dart';
@@ -24,6 +25,12 @@ class _ProfilePageState extends State<ProfilePage> {
   String username = '';
   String birthDate = 'Not yet set';
   String gender = 'Not yet set';
+  String photoUrl = '';
+  String email = '';
+  String role = '';
+  List<dynamic> sportsList = [];
+  List<dynamic> communityList = [];
+  List<dynamic> eventList = [];
   bool mySportsEnabled = true;
   bool myCommunityEnabled = true;
   late int _currentTabIndex; // Profile tab is active
@@ -31,9 +38,116 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
-    // Initialize username from email
-    username = user.displayName ?? user.email!.split('@')[0];
     _currentTabIndex = widget.initialTabIndex;
+    _fetchUserProfile();
+  }
+
+  Future<void> _fetchUserProfile() async {
+    final doc = await FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .get();
+    final data = doc.data();
+    if (data != null) {
+      setState(() {
+        username = data['name'] ?? '';
+        birthDate = data['birthDate'] ?? 'Not yet set';
+        gender = data['gender'] ?? 'Not yet set';
+        photoUrl = data['photoUrl'] ?? '';
+        email = data['email'] ?? user.email ?? '';
+        role = data['role'] ?? '';
+        sportsList = data['sportsList'] ?? [];
+        communityList = data['communityList'] ?? [];
+        eventList = data['eventList'] ?? [];
+      });
+    }
+  }
+
+  Future<void> _updateUserProfile(Map<String, dynamic> updates) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .update(updates);
+      await _fetchUserProfile();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Profile updated!'), backgroundColor: Colors.green),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Update failed: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  void _editField(String field, String currentValue) {
+    final controller = TextEditingController(text: currentValue);
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Edit $field'),
+        content: TextField(
+          controller: controller,
+          decoration: InputDecoration(labelText: field),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await _updateUserProfile({field: controller.text.trim()});
+            },
+            child: Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _editListField(String field, List<dynamic> currentList) {
+    final controller = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Edit $field'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Current: ${currentList.join(", ")}'),
+            TextField(
+              controller: controller,
+              decoration: InputDecoration(
+                labelText: 'Add new item',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final newItem = controller.text.trim();
+              if (newItem.isNotEmpty) {
+                final updatedList = List<String>.from(currentList)..add(newItem);
+                await _updateUserProfile({field: updatedList});
+              }
+              Navigator.pop(context);
+            },
+            child: Text('Add'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _navigateToPage(int index) {
@@ -98,26 +212,29 @@ class _ProfilePageState extends State<ProfilePage> {
               activeTrackColor: Colors.green[100],
             )
           else
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.black,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    value,
-                    style: TextStyle(color: Colors.white),
-                  ),
-                  SizedBox(width: 4),
-                  Icon(
-                    Icons.edit,
-                    color: Colors.white,
-                    size: 16,
-                  ),
-                ],
+            GestureDetector(
+              onTap: onTap,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      value,
+                      style: TextStyle(color: Colors.white),
+                    ),
+                    SizedBox(width: 4),
+                    Icon(
+                      Icons.edit,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                  ],
+                ),
               ),
             ),
         ],
@@ -273,7 +390,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       label: 'Username',
                       value: username,
                       onTap: () {
-                        // Show dialog to edit username
+                        _editField('name', username);
                       },
                     ),
                     _buildProfileItem(
@@ -281,7 +398,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       label: 'Birth Date',
                       value: birthDate,
                       onTap: () {
-                        // Show date picker
+                        _editField('birthDate', birthDate);
                       },
                     ),
                     _buildProfileItem(
@@ -289,35 +406,25 @@ class _ProfilePageState extends State<ProfilePage> {
                       label: 'Gender',
                       value: gender,
                       onTap: () {
-                        // Show gender selection
+                        _editField('gender', gender);
                       },
+                    ),
+                    _buildProfileItem(
+                      icon: Icons.email,
+                      label: 'Email',
+                      value: email,
+                      onTap: () {}, // Email is not editable here
                     ),
                     _buildProfileItem(
                       icon: Icons.sports_volleyball,
                       label: 'My Sports',
-                      value: '',
-                      isToggleable: true,
-                      toggleValue: mySportsEnabled,
+                      value: sportsList.isNotEmpty ? sportsList.join(', ') : 'None',
                       onTap: () {
-                        setState(() {
-                          mySportsEnabled = !mySportsEnabled;
-                        });
-                      },
-                    ),
-                    _buildProfileItem(
-                      icon: Icons.people_outline,
-                      label: 'My community',
-                      value: '',
-                      isToggleable: true,
-                      toggleValue: myCommunityEnabled,
-                      onTap: () {
-                        setState(() {
-                          myCommunityEnabled = !myCommunityEnabled;
-                        });
+                        _editListField('sportsList', sportsList);
                       },
                     ),
 
-                    SizedBox(height: 30),
+                    SizedBox(height: 120),
                     // Logout button
                     Container(
                       width: double.infinity,

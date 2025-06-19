@@ -1,0 +1,14 @@
+// TEMPORARY FIRESTORE RULES FOR TESTING
+// Use these rules temporarily to test if everything works
+// Copy these to Firebase Console -> Firestore Database -> Rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // WARNING: These rules allow anyone with authentication to read/write anything
+    // Use only for testing - replace with proper rules later
+    match /{document=**} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

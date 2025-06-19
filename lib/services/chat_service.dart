@@ -6,8 +6,9 @@ import 'package:map_project/models/app_user.dart';
 
 class ChatService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  static final FirebaseAuth _auth =
-      FirebaseAuth.instance; // Get clubs that the current user has joined
+  static final FirebaseAuth _auth = FirebaseAuth.instance;
+
+  // Get clubs that the current user has joined
   static Stream<List<Club>> getUserJoinedClubs() {
     final currentUserId = _auth.currentUser?.uid;
     if (currentUserId == null) {
@@ -18,26 +19,49 @@ class ChatService {
     print('Searching for clubs with user ID: $currentUserId');
 
     return _firestore
-        .collection('club') // Changed from 'clubs' to 'club'
-        .where('members',
-            arrayContains:
-                currentUserId) // Changed from 'memberIds' to 'members'
-        .orderBy('lastMessageTime', descending: true)
+        .collection('club')
+        .where('members', arrayContains: currentUserId)
         .snapshots()
         .map((snapshot) {
       print('Found ${snapshot.docs.length} clubs for user');
-      return snapshot.docs.map((doc) {
+      final clubs = snapshot.docs.map((doc) {
         print(
             'Club: ${doc.data()['name']} - Members: ${doc.data()['members']}');
         return Club.fromMap(doc.data(), doc.id);
-      }).toList();
+      }).toList(); // Sort clubs: prioritize clubs with messages, then by most recent activity
+      clubs.sort((a, b) {
+        // Check if clubs have real messages (not empty and not placeholder text)
+        final aHasRealMessage = a.lastMessage.isNotEmpty &&
+            !a.lastMessage.startsWith('Send your first message');
+        final bHasRealMessage = b.lastMessage.isNotEmpty &&
+            !b.lastMessage.startsWith('Send your first message');
+
+        // If both clubs have real messages, sort by lastMessageTime
+        if (aHasRealMessage && bHasRealMessage) {
+          return b.lastMessageTime.compareTo(a.lastMessageTime);
+        }
+        // If only club 'a' has real messages, it should come first
+        else if (aHasRealMessage && !bHasRealMessage) {
+          return -1;
+        }
+        // If only club 'b' has real messages, it should come first
+        else if (!aHasRealMessage && bHasRealMessage) {
+          return 1;
+        }
+        // If neither club has real messages, sort by creation time (most recent first)
+        else {
+          return b.createdAt.compareTo(a.createdAt);
+        }
+      });
+
+      return clubs;
     });
   }
 
   // Get messages for a specific club
   static Stream<List<ChatMessage>> getClubMessages(String clubId) {
     return _firestore
-        .collection('club') // Changed from 'clubs' to 'club'
+        .collection('club')
         .doc(clubId)
         .collection('messages')
         .orderBy('timestamp', descending: true)
@@ -46,114 +70,114 @@ class ChatService {
         .map((snapshot) => snapshot.docs
             .map((doc) => ChatMessage.fromMap(doc.data(), doc.id))
             .toList());
-  } // Send a message to a club
+  }
 
+  // Send a message to a club
   static Future<void> sendMessage(String clubId, String message) async {
     final currentUser = _auth.currentUser;
     if (currentUser == null) {
-      print('❌ No user logged in');
-      return;
+      throw Exception('User not authenticated');
     }
 
-    print('📤 Sending message to club: $clubId');
-    print('👤 Current user: ${currentUser.uid}');
-    print('💬 Message: $message');
-
     try {
-      // First, verify the club exists and user is a member
+      print('🔥 Sending message to club: $clubId');
+      print('🔥 Message content: $message');
+      print('🔥 Current user: ${currentUser.uid}');
+
+      // Get club document to verify it exists
       final clubDoc = await _firestore.collection('club').doc(clubId).get();
       if (!clubDoc.exists) {
-        print('❌ Club does not exist');
-        return;
+        throw Exception('Club not found');
       }
 
-      final clubData = clubDoc.data()!;
-      final members = List<String>.from(clubData['members'] ?? []);
+      print('🔥 Club exists, proceeding with message send');
 
-      if (!members.contains(currentUser.uid)) {
-        print('❌ User is not a member of this club');
-        print('Club members: $members');
-        return;
-      }
-
-      print('✅ User is verified as club member');
-
-      // Get current user data
+      // Get user data for sender info
       final userDoc =
           await _firestore.collection('users').doc(currentUser.uid).get();
-      final userData = userDoc.exists ? userDoc.data() : null;
+      final userData = userDoc.data();
+      final senderName = userData?['name'] ??
+          currentUser.displayName ??
+          currentUser.email ??
+          'Unknown User';
+      final senderPhotoUrl = userData?['photoUrl'] ?? '';
 
-      final chatMessage = ChatMessage(
-        id: '',
-        senderId: currentUser.uid,
-        senderName:
-            userData?['name'] ?? currentUser.displayName ?? 'Unknown User',
-        senderPhotoUrl: userData?['photoUrl'] ?? currentUser.photoURL ?? '',
-        message: message,
-        timestamp: DateTime.now(),
-        clubId: clubId,
-      );
+      print('🔥 Sender name: $senderName');
 
-      print('📝 Creating message document...');
-
-      // Add message to club's messages subcollection
+      // Create message document
       final messageRef = await _firestore
           .collection('club')
           .doc(clubId)
           .collection('messages')
-          .add(chatMessage.toMap());
-
-      print('✅ Message created with ID: ${messageRef.id}');
-
-      // Update club's last message
-      await _firestore.collection('club').doc(clubId).update({
-        'lastMessage': message,
-        'lastMessageTime': Timestamp.fromDate(DateTime.now()),
+          .add({
+        'senderId': currentUser.uid,
+        'senderName': senderName,
+        'senderPhotoUrl': senderPhotoUrl,
+        'message': message,
+        'timestamp': Timestamp.now(),
+        'clubId': clubId,
       });
 
-      print('✅ Club last message updated');
-      print('🎉 Message sent successfully!');
+      // Update club's last message info
+      await _firestore.collection('club').doc(clubId).update({
+        'lastMessage': message,
+        'lastMessageTime': Timestamp.now(),
+        'lastMessageSender': senderName,
+      });
+
+      print('🔥 Message sent successfully with ID: ${messageRef.id}');
     } catch (e) {
-      print('❌ Error sending message: $e');
-      print('❌ Error type: ${e.runtimeType}');
+      print('🔥 Error sending message: $e');
       rethrow;
     }
   }
 
-  // Get club members
+  // Get club members as AppUser objects
   static Future<List<AppUser>> getClubMembers(List<String> memberIds) async {
-    if (memberIds.isEmpty) return [];
+    try {
+      if (memberIds.isEmpty) {
+        return [];
+      }
 
-    final List<AppUser> members = [];
+      print('🔍 Getting members for IDs: $memberIds');
 
-    // Firebase 'in' query has a limit of 10, so we need to batch the queries
-    for (int i = 0; i < memberIds.length; i += 10) {
-      final batch = memberIds.skip(i).take(10).toList();
       final snapshot = await _firestore
           .collection('users')
-          .where('uid', whereIn: batch)
+          .where(FieldPath.documentId, whereIn: memberIds)
           .get();
+      final members = snapshot.docs.map((doc) {
+        final data = doc.data();
+        return AppUser(
+          uid: doc.id,
+          email: data['email'] ?? '',
+          name: data['name'] ?? 'Unknown User',
+          birthDate: data['birthDate'] ?? '',
+          gender: data['gender'] ?? '',
+          photoUrl: data['photoUrl'] ?? '',
+          sportsList: List<String>.from(data['sportsList'] ?? []),
+          communityList: List<String>.from(data['communityList'] ?? []),
+          eventList: List<String>.from(data['eventList'] ?? []),
+          role: data['role'] ?? '',
+        );
+      }).toList();
 
-      members.addAll(
-          snapshot.docs.map((doc) => AppUser.fromMap(doc.data())).toList());
+      print('🔍 Found ${members.length} members');
+      return members;
+    } catch (e) {
+      print('❌ Error getting club members: $e');
+      return [];
     }
-
-    return members;
   }
 
   // Format timestamp for display
   static String formatTimestamp(DateTime timestamp) {
-    final now = DateTime.now();
-    final difference = now.difference(timestamp);
+    // Convert both timestamps to Malaysia time (UTC+8) for proper comparison
+    final malaysiaTime = timestamp.toUtc().add(Duration(hours: 8));
+    final nowMalaysia = DateTime.now().toUtc().add(Duration(hours: 8));
+    final difference = nowMalaysia.difference(malaysiaTime);
 
     if (difference.inDays > 0) {
-      if (difference.inDays == 1) {
-        return 'Yesterday';
-      } else if (difference.inDays < 7) {
-        return '${difference.inDays} days ago';
-      } else {
-        return '${timestamp.day}/${timestamp.month}/${timestamp.year}';
-      }
+      return '${difference.inDays}d ago';
     } else if (difference.inHours > 0) {
       return '${difference.inHours}h ago';
     } else if (difference.inMinutes > 0) {
@@ -163,41 +187,59 @@ class ChatService {
     }
   }
 
-  // Format time for chat messages
+  // Format message time
   static String formatMessageTime(DateTime timestamp) {
-    return '${timestamp.hour.toString().padLeft(2, '0')}:${timestamp.minute.toString().padLeft(2, '0')}';
+    // Convert to Malaysia time (UTC+8)
+    final malaysiaTime = timestamp.toUtc().add(Duration(hours: 8));
+    final now = DateTime.now().toUtc().add(Duration(hours: 8));
+
+    // Check if it's today
+    if (malaysiaTime.year == now.year &&
+        malaysiaTime.month == now.month &&
+        malaysiaTime.day == now.day) {
+      // Show only time for today's messages
+      return '${malaysiaTime.hour.toString().padLeft(2, '0')}:${malaysiaTime.minute.toString().padLeft(2, '0')}';
+    } else {
+      // Show date and time for older messages
+      final day = malaysiaTime.day.toString().padLeft(2, '0');
+      final month = malaysiaTime.month.toString().padLeft(2, '0');
+      final time =
+          '${malaysiaTime.hour.toString().padLeft(2, '0')}:${malaysiaTime.minute.toString().padLeft(2, '0')}';
+      return '$day/$month $time';
+    }
   }
 
-  // Debug function to check club membership
+  // Debug method to check club membership
   static Future<void> debugClubMembership() async {
     final currentUserId = _auth.currentUser?.uid;
     if (currentUserId == null) {
-      print('No current user logged in');
+      print('❌ No current user');
       return;
     }
 
-    print('Current user ID: $currentUserId');
-    print('Current user email: ${_auth.currentUser?.email}'); // Get all clubs
-    final allClubs = await _firestore
-        .collection('club')
-        .get(); // Changed from 'clubs' to 'club'
-    print('Total clubs in database: ${allClubs.docs.length}');
+    print('🔍 Checking clubs for user: $currentUserId');
+    print('Current user email: ${_auth.currentUser?.email}');
+
+    // Get all clubs
+    final allClubs = await _firestore.collection('club').get();
+
+    print('📊 Found ${allClubs.docs.length} clubs');
 
     for (final doc in allClubs.docs) {
       final data = doc.data();
-      final memberIds = List<String>.from(
-          data['members'] ?? []); // Changed from 'memberIds' to 'members'
+      final members = List<String>.from(data['members'] ?? []);
+      final isUserInClub = members.contains(currentUserId);
       print(
-          'Club: ${data['name']} - Members: $memberIds - User in club: ${memberIds.contains(currentUserId)}');
+          '  📁 ${data['name']} - Members: $members - User in club: $isUserInClub');
     }
 
-    // Try to get user's clubs
+    // Get user's clubs using the same query as getUserJoinedClubs
     final userClubs = await _firestore
-        .collection('club') // Changed from 'clubs' to 'club'
-        .where('members',
-            arrayContains:
-                currentUserId) // Changed from 'memberIds' to 'members'
+        .collection('club')
+        .where('members', arrayContains: currentUserId)
         .get();
+
     print('User joined clubs: ${userClubs.docs.length}');
+    print('=== DEBUG TEST COMPLETE ===');
   }
 }

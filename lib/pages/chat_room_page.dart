@@ -4,7 +4,6 @@ import 'package:map_project/models/club.dart';
 import 'package:map_project/models/chat_message.dart';
 import 'package:map_project/models/app_user.dart';
 import 'package:map_project/services/chat_service.dart';
-import 'package:map_project/services/firebase_test_service.dart';
 import 'package:map_project/widgets/user_avatar.dart';
 import 'package:map_project/services/user_service.dart';
 
@@ -220,15 +219,6 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                         ),
                         overflow: TextOverflow.ellipsis,
                       ),
-                    ),
-                    // Debug button for testing messages
-                    IconButton(
-                      onPressed: () async {
-                        await FirebaseTestService.testSendMessage(
-                            widget.club.id);
-                      },
-                      icon:
-                          Icon(Icons.bug_report, size: 20, color: Colors.black),
                     ),
                   ],
                 ),

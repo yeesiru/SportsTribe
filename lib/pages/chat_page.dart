@@ -7,8 +7,6 @@ import 'package:map_project/pages/chat_room_page.dart';
 import 'package:map_project/models/club.dart';
 import 'package:map_project/services/chat_service.dart';
 import 'package:map_project/services/data_seeder.dart';
-import 'package:map_project/services/firebase_test_service.dart';
-import 'package:map_project/widgets/user_avatar.dart';
 
 class ChatPage extends StatefulWidget {
   final int initialTabIndex;
@@ -27,19 +25,19 @@ class _ChatPageState extends State<ChatPage> {
   late int _currentTabIndex;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-
-  // Filtered clubs based on search
   List<Club> _getFilteredClubs(List<Club> clubs) {
     if (_searchQuery.isEmpty) {
       return clubs;
     }
 
     return clubs.where((club) {
-      final name = club.name.toLowerCase();
-      final lastMessage = club.lastMessage.toLowerCase();
-      final query = _searchQuery.toLowerCase();
+      final name = club.name.toLowerCase().trim();
+      final query = _searchQuery.toLowerCase().trim();
 
-      return name.contains(query) || lastMessage.contains(query);
+      // Get the first word of the club name
+      final firstWord = name.split(' ').first;
+
+      return firstWord.startsWith(query);
     }).toList();
   }
 
@@ -157,16 +155,6 @@ class _ChatPageState extends State<ChatPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // You can add functionality to create new clubs or start new chats here
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Create new chat feature coming soon!')),
-          );
-        },
-        backgroundColor: Colors.black,
-        child: Icon(Icons.add, color: Colors.white),
-      ),
       body: Column(
         children: [
           Container(
@@ -190,45 +178,6 @@ class _ChatPageState extends State<ChatPage> {
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
-                    ),
-                    Spacer(), // Debug button to check membership
-                    IconButton(
-                      onPressed: () async {
-                        print('=== FIREBASE RULES TEST ===');
-                        await FirebaseTestService.testFirebaseRules();
-                        print('=== RULES TEST COMPLETE ===');
-                      },
-                      icon: Icon(Icons.security, size: 20),
-                    ),
-                    // Debug button to check membership
-                    IconButton(
-                      onPressed: () async {
-                        print('=== FIREBASE DEBUG TEST ===');
-                        await FirebaseTestService.testFirebaseConnection();
-                        await FirebaseTestService.checkUserClubs();
-                        await ChatService.debugClubMembership();
-                        print('=== DEBUG TEST COMPLETE ===');
-                      },
-                      icon: Icon(Icons.info_outline, size: 20),
-                    ), // Debug button to create sample clubs
-                    IconButton(
-                      onPressed: () async {
-                        await DataSeeder.seedInitialData();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Sample clubs created!')),
-                        );
-                      },
-                      icon: Icon(Icons.bug_report, size: 20),
-                    ),
-                    // Reset button
-                    IconButton(
-                      onPressed: () async {
-                        await DataSeeder.resetAndSeedData();
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(content: Text('Data reset and recreated!')),
-                        );
-                      },
-                      icon: Icon(Icons.refresh, size: 20),
                     ),
                   ],
                 ),
@@ -405,12 +354,14 @@ class _ChatPageState extends State<ChatPage> {
                             final club = clubs[index];
                             return ListTile(
                               leading: CircleAvatar(
+                                radius: 20,
+                                backgroundColor: Colors.green[200],
                                 backgroundImage: club.imageUrl.isNotEmpty
                                     ? NetworkImage(club.imageUrl)
-                                    : AssetImage('assets/images/profile.jpg')
-                                        as ImageProvider,
+                                    : null,
                                 child: club.imageUrl.isEmpty
-                                    ? Icon(Icons.group, color: Colors.grey[600])
+                                    ? Icon(Icons.sports_tennis,
+                                        color: Colors.green[800], size: 20)
                                     : null,
                               ),
                               title: Text(

@@ -88,7 +88,7 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
           .collection('club')
           .doc(widget.clubId)
           .get();
-      
+
       if (clubDoc.exists) {
         _clubData = clubDoc.data();
       }
@@ -100,7 +100,7 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
             .collection('users')
             .doc(authorId)
             .get();
-        
+
         if (authorDoc.exists) {
           _authorData = authorDoc.data();
         }
@@ -148,7 +148,9 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
         ),
       );
     }
-  }  Future<void> _addComment() async {
+  }
+
+  Future<void> _addComment() async {
     if (_commentController.text.trim().isEmpty) return;
 
     setState(() {
@@ -157,7 +159,7 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
 
     try {
       final commentText = _commentController.text.trim();
-      
+
       // Use a transaction to ensure atomic operations
       await FirebaseFirestore.instance.runTransaction((transaction) async {
         // Add comment to subcollection
@@ -168,44 +170,45 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
             .doc(widget.postId)
             .collection('comments')
             .doc(); // This creates a new document reference
-        
+
         // Get current post data to ensure we have the latest count
         final postRef = FirebaseFirestore.instance
             .collection('club')
             .doc(widget.clubId)
             .collection('posts')
             .doc(widget.postId);
-        
+
         final postDoc = await transaction.get(postRef);
-        
+
         if (!postDoc.exists) {
           throw Exception('Post not found');
         }
-        
+
         final currentCount = postDoc.data()?['commentsCount'] as int? ?? 0;
         final newCount = currentCount + 1;
-        
+
         // Add the comment
         transaction.set(commentRef, {
           'text': commentText,
           'createdBy': user.uid,
           'createdAt': Timestamp.now(),
         });
-        
+
         // Update the post's comment count
         transaction.update(postRef, {
           'commentsCount': newCount,
         });
-          // Update local state
+        // Update local state
         setState(() {
           widget.postData['commentsCount'] = newCount;
         });
       });
 
-      print('Comment added successfully. New count: ${widget.postData['commentsCount']}'); // Debug log
-      
+      print(
+          'Comment added successfully. New count: ${widget.postData['commentsCount']}'); // Debug log
+
       _commentController.clear();
-      
+
       // Scroll to bottom to show new comment
       Future.delayed(Duration(milliseconds: 300), () {
         if (_scrollController.hasClients) {
@@ -246,15 +249,19 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
 
   Future<void> _editPost() async {
     if (!_canEditPost) return;
-    
+
     setState(() {
       _isPostLoading = true;
     });
 
     try {
       // Process tags
-      List<String> tagsList = _editTags?.isNotEmpty == true 
-          ? _editTags!.split(',').map((tag) => tag.trim()).where((tag) => tag.isNotEmpty).toList()
+      List<String> tagsList = _editTags?.isNotEmpty == true
+          ? _editTags!
+              .split(',')
+              .map((tag) => tag.trim())
+              .where((tag) => tag.isNotEmpty)
+              .toList()
           : [];
 
       await FirebaseFirestore.instance
@@ -306,7 +313,8 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Delete Post'),
-        content: Text('Are you sure you want to delete this post? This action cannot be undone.'),
+        content: Text(
+            'Are you sure you want to delete this post? This action cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -445,7 +453,9 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
         ),
       );
     }
-  }  Future<void> _deleteComment(String commentId) async {
+  }
+
+  Future<void> _deleteComment(String commentId) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -477,7 +487,7 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
             .doc(widget.postId)
             .collection('comments')
             .doc(commentId);
-        
+
         final postRef = FirebaseFirestore.instance
             .collection('club')
             .doc(widget.clubId)
@@ -486,17 +496,17 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
 
         // Get current post data to ensure we have the latest count
         final postDoc = await transaction.get(postRef);
-        
+
         if (!postDoc.exists) {
           throw Exception('Post not found');
         }
 
         final currentCount = postDoc.data()?['commentsCount'] as int? ?? 0;
         final newCount = math.max(0, currentCount - 1);
-        
+
         // Delete the comment
         transaction.delete(commentRef);
-        
+
         // Update the post's comment count
         transaction.update(postRef, {
           'commentsCount': newCount,
@@ -528,7 +538,7 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
   Widget _buildPostHeader() {
     final createdAt = widget.postData['createdAt'] as Timestamp?;
     final isImportant = widget.postData['isImportant'] as bool? ?? false;
-    
+
     return Container(
       padding: EdgeInsets.all(16),
       child: Column(
@@ -541,11 +551,12 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
               CircleAvatar(
                 radius: 20,
                 backgroundColor: Colors.green[200],
-                backgroundImage: _clubData?['imageUrl'] != null 
-                    ? NetworkImage(_clubData!['imageUrl']) 
+                backgroundImage: _clubData?['imageUrl'] != null
+                    ? NetworkImage(_clubData!['imageUrl'])
                     : null,
                 child: _clubData?['imageUrl'] == null
-                    ? Icon(Icons.sports_tennis, color: Colors.green[800], size: 20)
+                    ? Icon(Icons.sports_tennis,
+                        color: Colors.green[800], size: 20)
                     : null,
               ),
               SizedBox(width: 12),
@@ -588,7 +599,7 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
                     ),
                   ],
                 ),
-              ),              // More options
+              ), // More options
               PopupMenuButton<String>(
                 icon: Icon(Icons.more_vert, color: Colors.grey[600]),
                 onSelected: (value) {
@@ -627,7 +638,8 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
                         children: [
                           Icon(Icons.delete, size: 18, color: Colors.red),
                           SizedBox(width: 8),
-                          Text('Delete Post', style: TextStyle(color: Colors.red)),
+                          Text('Delete Post',
+                              style: TextStyle(color: Colors.red)),
                         ],
                       ),
                     ),
@@ -656,9 +668,9 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
               ),
             ],
           ),
-          
+
           SizedBox(height: 16),
-          
+
           // Category and importance badges
           Row(
             children: [
@@ -686,14 +698,19 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
                     ],
                   ),
                 ),
-              if (isImportant && widget.postData['category'] != null) SizedBox(width: 8),
-              if (widget.postData['category'] != null && widget.postData['category'] != 'General')
+              if (isImportant && widget.postData['category'] != null)
+                SizedBox(width: 8),
+              if (widget.postData['category'] != null &&
+                  widget.postData['category'] != 'General')
                 Container(
                   padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _getCategoryColor(widget.postData['category']).withOpacity(0.1),
+                    color: _getCategoryColor(widget.postData['category'])
+                        .withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: _getCategoryColor(widget.postData['category']), width: 1),
+                    border: Border.all(
+                        color: _getCategoryColor(widget.postData['category']),
+                        width: 1),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -722,7 +739,7 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
     if (_isEditing) {
       return _buildEditForm();
     }
-    
+
     final title = widget.postData['title'] as String?;
     final content = widget.postData['content'] as String? ?? '';
     final imageUrl = widget.postData['imageUrl'] as String?;
@@ -746,7 +763,7 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
             ),
             SizedBox(height: 16),
           ],
-          
+
           // Content
           if (content.isNotEmpty) ...[
             Text(
@@ -759,7 +776,7 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
             ),
             SizedBox(height: 16),
           ],
-          
+
           // Image
           if (imageUrl != null && imageUrl.isNotEmpty) ...[
             ClipRRect(
@@ -789,7 +806,8 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
                     height: 200,
                     color: Colors.grey[200],
                     child: Center(
-                      child: Icon(Icons.image_not_supported, color: Colors.grey[400]),
+                      child: Icon(Icons.image_not_supported,
+                          color: Colors.grey[400]),
                     ),
                   );
                 },
@@ -797,7 +815,7 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
             ),
             SizedBox(height: 16),
           ],
-          
+
           // Tags
           if (tags != null && tags.isNotEmpty) ...[
             Wrap(
@@ -1023,9 +1041,9 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
               ),
             ),
           ),
-          
+
           SizedBox(width: 12),
-          
+
           // Comment count
           Container(
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -1053,9 +1071,9 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
               ],
             ),
           ),
-          
+
           Spacer(),
-          
+
           // Share button
           GestureDetector(
             onTap: _sharePost,
@@ -1079,7 +1097,7 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
 
   Widget _buildCommentsList() {
     final allowComments = widget.postData['allowComments'] as bool? ?? true;
-    
+
     if (!allowComments) {
       return Container(
         padding: EdgeInsets.all(16),
@@ -1172,22 +1190,24 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
     final likes = List<String>.from(commentData['likes'] ?? []);
     final isLiked = likes.contains(user.uid);
     final likesCount = commentData['likesCount'] as int? ?? 0;
-    
+
     final canEdit = user.uid == authorId || user.uid == _clubData?['creatorId'];
     final isEditingThis = _editingComments.contains(commentId);
 
     return FutureBuilder<DocumentSnapshot>(
-      future: authorId != null 
+      future: authorId != null
           ? FirebaseFirestore.instance.collection('users').doc(authorId).get()
           : null,
-      builder: (context, userSnapshot) {        final userData = userSnapshot.data?.data() as Map<String, dynamic>?;
+      builder: (context, userSnapshot) {
+        final userData = userSnapshot.data?.data() as Map<String, dynamic>?;
         final authorName = userData?['name'] ?? 'Unknown User';
 
         return Container(
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [              // Author avatar
+            children: [
+              // Author avatar
               UserAvatar(
                 userData: userData,
                 radius: 16,
@@ -1231,11 +1251,13 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
                         Spacer(),
                         if (canEdit)
                           PopupMenuButton<String>(
-                            icon: Icon(Icons.more_vert, size: 16, color: Colors.grey[600]),
+                            icon: Icon(Icons.more_vert,
+                                size: 16, color: Colors.grey[600]),
                             onSelected: (value) {
                               switch (value) {
                                 case 'edit':
-                                  _commentEditControllers[commentId] = TextEditingController(text: text);
+                                  _commentEditControllers[commentId] =
+                                      TextEditingController(text: text);
                                   setState(() {
                                     _editingComments.add(commentId);
                                   });
@@ -1260,9 +1282,11 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
                                 value: 'delete',
                                 child: Row(
                                   children: [
-                                    Icon(Icons.delete, size: 16, color: Colors.red),
+                                    Icon(Icons.delete,
+                                        size: 16, color: Colors.red),
                                     SizedBox(width: 8),
-                                    Text('Delete', style: TextStyle(color: Colors.red)),
+                                    Text('Delete',
+                                        style: TextStyle(color: Colors.red)),
                                   ],
                                 ),
                               ),
@@ -1271,7 +1295,7 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
                       ],
                     ),
                     SizedBox(height: 8),
-                    
+
                     // Comment text or edit field
                     if (isEditingThis) ...[
                       Row(
@@ -1321,7 +1345,7 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
                         ),
                       ),
                       SizedBox(height: 8),
-                      
+
                       // Like button
                       Row(
                         children: [
@@ -1330,9 +1354,12 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
                             child: Row(
                               children: [
                                 Icon(
-                                  isLiked ? Icons.favorite : Icons.favorite_border,
+                                  isLiked
+                                      ? Icons.favorite
+                                      : Icons.favorite_border,
                                   size: 16,
-                                  color: isLiked ? Colors.red : Colors.grey[600],
+                                  color:
+                                      isLiked ? Colors.red : Colors.grey[600],
                                 ),
                                 if (likesCount > 0) ...[
                                   SizedBox(width: 4),
@@ -1340,7 +1367,9 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
                                     likesCount.toString(),
                                     style: TextStyle(
                                       fontSize: 12,
-                                      color: isLiked ? Colors.red : Colors.grey[600],
+                                      color: isLiked
+                                          ? Colors.red
+                                          : Colors.grey[600],
                                     ),
                                   ),
                                 ],
@@ -1359,9 +1388,10 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
       },
     );
   }
+
   Widget _buildCommentInput() {
     final allowComments = widget.postData['allowComments'] as bool? ?? true;
-    
+
     if (!allowComments) {
       return SizedBox.shrink();
     }
@@ -1379,7 +1409,8 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
           ),
         ],
       ),
-      child: Row(        children: [
+      child: Row(
+        children: [
           // User avatar with current user data
           StreamBuilder<Map<String, dynamic>?>(
             stream: UserService.getCurrentUserDataStream(),
@@ -1412,7 +1443,8 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
                   borderRadius: BorderRadius.circular(20),
                   borderSide: BorderSide(color: Color(0xFFD7F520), width: 2),
                 ),
-                contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                contentPadding:
+                    EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               ),
               maxLines: 3,
               minLines: 1,
@@ -1451,11 +1483,11 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
 
   String _formatTimestamp(Timestamp? timestamp) {
     if (timestamp == null) return 'Unknown time';
-    
+
     final now = DateTime.now();
     final date = timestamp.toDate();
     final difference = now.difference(date);
-    
+
     if (difference.inMinutes < 1) {
       return 'Just now';
     } else if (difference.inHours < 1) {
@@ -1501,7 +1533,8 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
       case 'Event Recap':
         return Icon(Icons.photo_library, size: 12, color: Colors.purple);
       case 'Tips & Advice':
-        return Icon(Icons.lightbulb_outline, size: 12, color: Colors.yellow[700]);
+        return Icon(Icons.lightbulb_outline,
+            size: 12, color: Colors.yellow[700]);
       default:
         return Icon(Icons.label, size: 12, color: Colors.grey);
     }
@@ -1554,7 +1587,7 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
           .collection('posts')
           .doc(widget.postId)
           .get();
-      
+
       if (postDoc.exists) {
         final freshData = postDoc.data()!;
         setState(() {
@@ -1564,8 +1597,9 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
           // Update other fields if needed
           widget.postData.addAll(freshData);
         });
-        
-        print('Post data refreshed. Comment count: ${freshData['commentsCount']}'); // Debug log
+
+        print(
+            'Post data refreshed. Comment count: ${freshData['commentsCount']}'); // Debug log
       }
     } catch (e) {
       print('Error refreshing post data: $e');
@@ -1575,7 +1609,8 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[50],      appBar: AppBar(
+      backgroundColor: Colors.grey[50],
+      appBar: AppBar(
         backgroundColor: Color(0xFFD7F520),
         elevation: 0,
         leading: IconButton(

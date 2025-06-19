@@ -47,6 +47,7 @@ class _ProfilePageState extends State<ProfilePage> {
     _currentTabIndex = widget.initialTabIndex;
     _fetchUserProfile();
   }
+
   Future<void> _fetchUserProfile() async {
     final doc = await FirebaseFirestore.instance
         .collection('users')
@@ -78,13 +79,15 @@ class _ProfilePageState extends State<ProfilePage> {
       await _fetchUserProfile();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Profile updated!'), backgroundColor: Colors.green),
+          SnackBar(
+              content: Text('Profile updated!'), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Update failed: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('Update failed: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -144,7 +147,8 @@ class _ProfilePageState extends State<ProfilePage> {
             onPressed: () async {
               final newItem = controller.text.trim();
               if (newItem.isNotEmpty) {
-                final updatedList = List<String>.from(currentList)..add(newItem);
+                final updatedList = List<String>.from(currentList)
+                  ..add(newItem);
                 await _updateUserProfile({field: updatedList});
               }
               Navigator.pop(context);
@@ -239,16 +243,18 @@ class _ProfilePageState extends State<ProfilePage> {
 
       // Read image as bytes
       final Uint8List imageBytes = await pickedFile.readAsBytes();
-      
+
       // Convert to base64
       final String base64Image = base64Encode(imageBytes);
-      
+
       // Check size limit (Firestore has a document size limit of 1MB)
-      if (base64Image.length > 800000) { // ~800KB limit to be safe
+      if (base64Image.length > 800000) {
+        // ~800KB limit to be safe
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Image is too large. Please select a smaller image.'),
+              content:
+                  Text('Image is too large. Please select a smaller image.'),
               backgroundColor: Colors.red,
             ),
           );
@@ -258,10 +264,10 @@ class _ProfilePageState extends State<ProfilePage> {
         });
         return;
       }
-      
+
       // Update Firestore with base64 image
       await _updateUserProfile({'photoBase64': base64Image});
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -270,7 +276,6 @@ class _ProfilePageState extends State<ProfilePage> {
           ),
         );
       }
-      
     } catch (e) {
       print('Error uploading image: $e');
       if (mounted) {
@@ -414,7 +419,8 @@ class _ProfilePageState extends State<ProfilePage> {
             GestureDetector(
               onTap: onTap,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.black,
                   borderRadius: BorderRadius.circular(20),
@@ -543,12 +549,13 @@ class _ProfilePageState extends State<ProfilePage> {
                   radius: 50,
                   backgroundColor: Colors.blue,
                   child: _getProfileImageWidget(),
-                ),                // Upload/Loading indicator
+                ), // Upload/Loading indicator
                 Positioned(
                   bottom: 0,
                   right: 0,
                   child: GestureDetector(
-                    onTap: _isUploadingImage ? null : _showProfilePictureOptions,
+                    onTap:
+                        _isUploadingImage ? null : _showProfilePictureOptions,
                     child: Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -569,7 +576,8 @@ class _ProfilePageState extends State<ProfilePage> {
                                 height: 20,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2,
-                                  valueColor: AlwaysStoppedAnimation<Color>(Colors.purple[300]!),
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.purple[300]!),
                                 ),
                               )
                             : Icon(
@@ -625,7 +633,9 @@ class _ProfilePageState extends State<ProfilePage> {
                     _buildProfileItem(
                       icon: Icons.sports_volleyball,
                       label: 'My Sports',
-                      value: sportsList.isNotEmpty ? sportsList.join(', ') : 'None',
+                      value: sportsList.isNotEmpty
+                          ? sportsList.join(', ')
+                          : 'None',
                       onTap: () {
                         _editListField('sportsList', sportsList);
                       },

@@ -82,7 +82,8 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     return Padding(
       padding: const EdgeInsets.only(right: 8.0),
       child: Column(
-        children: [          StreamBuilder<Map<String, dynamic>?>(
+        children: [
+          StreamBuilder<Map<String, dynamic>?>(
             stream: UserService.getUserDataStream(member.uid),
             builder: (context, snapshot) {
               return UserAvatar(
@@ -127,7 +128,8 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
               mainAxisAlignment:
                   isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.end,
-              children: [                if (!isMe)
+              children: [
+                if (!isMe)
                   Padding(
                     padding: EdgeInsets.only(right: 8),
                     child: StreamBuilder<Map<String, dynamic>?>(

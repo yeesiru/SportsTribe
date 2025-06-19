@@ -11,10 +11,8 @@ class UserService {
     if (currentUser == null) return null;
 
     try {
-      final DocumentSnapshot doc = await _firestore
-          .collection('users')
-          .doc(currentUser.uid)
-          .get();
+      final DocumentSnapshot doc =
+          await _firestore.collection('users').doc(currentUser.uid).get();
 
       if (doc.exists) {
         return doc.data() as Map<String, dynamic>?;
@@ -28,10 +26,8 @@ class UserService {
   /// Get user data by uid from Firestore
   static Future<Map<String, dynamic>?> getUserData(String uid) async {
     try {
-      final DocumentSnapshot doc = await _firestore
-          .collection('users')
-          .doc(uid)
-          .get();
+      final DocumentSnapshot doc =
+          await _firestore.collection('users').doc(uid).get();
 
       if (doc.exists) {
         return doc.data() as Map<String, dynamic>?;
@@ -41,6 +37,7 @@ class UserService {
     }
     return null;
   }
+
   /// Stream of current user data
   static Stream<Map<String, dynamic>?> getCurrentUserDataStream() {
     final User? currentUser = _auth.currentUser;

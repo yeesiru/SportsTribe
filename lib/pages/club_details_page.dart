@@ -186,6 +186,7 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
       }
     }
   }
+
   // Show members list
   void _showMembersList() {
     Navigator.push(
@@ -318,7 +319,8 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                   ),
                   leading: IconButton(
                     icon: Icon(Icons.arrow_back, color: Colors.black),
-                    onPressed: () => Navigator.pop(context),                  ),
+                    onPressed: () => Navigator.pop(context),
+                  ),
                   actions: [
                     if (isCreator)
                       PopupMenuButton<String>(
@@ -687,7 +689,8 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                         Container(
                           decoration: BoxDecoration(
                             color: Color(0xFFD7F520).withOpacity(0.25),
-                            borderRadius: BorderRadius.circular(25),                          ),
+                            borderRadius: BorderRadius.circular(25),
+                          ),
                           child: Row(
                             children: List.generate(
                                 tabs.length, (i) => _buildTab(tabs[i], i)),
@@ -705,7 +708,7 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                       builder: (context) {
                         // Check if user can view content (public club or member of private club)
                         bool canViewContent = !isPrivateClub || isUserMember;
-                        
+
                         if (_selectedTabIndex == 0) {
                           if (canViewContent) {
                             return _buildEventsTabWithImages(
@@ -847,7 +850,9 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
     } catch (e) {
       print('Error in transaction: $e');
       return false;
-    }  }
+    }
+  }
+
   Widget _buildPostsTabWithImages(String clubId, bool isOwner) {
     print('Building posts for club: $clubId');
     return StreamBuilder<QuerySnapshot>(
@@ -858,14 +863,15 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
           .orderBy('createdAt', descending: true)
           .snapshots(),
       builder: (context, snapshot) {
-        print('Posts StreamBuilder - ConnectionState: ${snapshot.connectionState}');
+        print(
+            'Posts StreamBuilder - ConnectionState: ${snapshot.connectionState}');
         print('Posts StreamBuilder - HasError: ${snapshot.hasError}');
         print('Posts StreamBuilder - HasData: ${snapshot.hasData}');
-        
+
         if (snapshot.hasData) {
           print('Posts count: ${snapshot.data!.docs.length}');
         }
-        
+
         if (snapshot.connectionState == ConnectionState.waiting) {
           print('Posts - Waiting for data...');
           return Center(child: CircularProgressIndicator());
@@ -898,17 +904,18 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
               ],
             ),
           );
-        }        print('Displaying ${snapshot.data!.docs.length} posts');
+        }
+        print('Displaying ${snapshot.data!.docs.length} posts');
         return Column(
           children: snapshot.data!.docs.asMap().entries.map((entry) {
             final index = entry.key;
             final post = entry.value;
             final data = post.data() as Map<String, dynamic>;
-            
+
             // Add the document ID to the data for navigation
             data['id'] = post.id;
             data['clubId'] = clubId;
-            
+
             print('Post: ${data.keys.toList()}');
             print('  Title: ${data['title']}');
             print('  Content: ${data['content']}');
@@ -1105,7 +1112,8 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                         ],
                       ),
                     );
-                  }                  String userName = 'Unknown User';
+                  }
+                  String userName = 'Unknown User';
 
                   if (userSnapshot.hasData && userSnapshot.data!.exists) {
                     final userData =
@@ -1115,7 +1123,8 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                         'Unknown User';
                   }
 
-                  final userData = userSnapshot.data?.data() as Map<String, dynamic>?;
+                  final userData =
+                      userSnapshot.data?.data() as Map<String, dynamic>?;
 
                   return Card(
                     margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -1242,7 +1251,8 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
     final likesCount = data['likesCount'] as int? ?? 0;
     final commentsCount = data['commentsCount'] as int? ?? 0;
     final tags = data['tags'] as List?;
-    final clubId = data['clubId'] as String?;    return AnimatedContainer(
+    final clubId = data['clubId'] as String?;
+    return AnimatedContainer(
       duration: Duration(milliseconds: 300 + (index * 100)),
       curve: Curves.easeOutBack,
       margin: EdgeInsets.only(left: 16, right: 16, bottom: 16),
@@ -1272,20 +1282,19 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                 offset: Offset(0, 4),
               ),
             ],
-            border: isImportant
-                ? Border.all(color: Colors.amber, width: 2)
-                : null,
+            border:
+                isImportant ? Border.all(color: Colors.amber, width: 2) : null,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header with club info and timestamp
               _buildPostCardHeader(data, createdAt, clubId),
-              
+
               // Category and importance badges
               if (category != null || isImportant)
                 _buildPostBadgeRow(category, isImportant),
-              
+
               // Title
               if (title != null && title.isNotEmpty)
                 Padding(
@@ -1299,7 +1308,7 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                     ),
                   ),
                 ),
-              
+
               // Content
               if (content.isNotEmpty)
                 Padding(
@@ -1315,15 +1324,14 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-              
+
               // Image
               if (imageUrl != null && imageUrl.isNotEmpty)
                 _buildPostCardImage(imageUrl),
-              
+
               // Tags
-              if (tags != null && tags.isNotEmpty)
-                _buildPostTagsRow(tags),
-                // Action buttons (likes, comments, share)
+              if (tags != null && tags.isNotEmpty) _buildPostTagsRow(tags),
+              // Action buttons (likes, comments, share)
               _buildPostActionButtons(likesCount, commentsCount),
             ],
           ),
@@ -1332,7 +1340,8 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
     );
   }
 
-  Widget _buildPostCardHeader(Map<String, dynamic> data, Timestamp? createdAt, String? clubId) {
+  Widget _buildPostCardHeader(
+      Map<String, dynamic> data, Timestamp? createdAt, String? clubId) {
     return Padding(
       padding: EdgeInsets.all(16),
       child: Row(
@@ -1341,8 +1350,8 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
           CircleAvatar(
             radius: 20,
             backgroundColor: Colors.green[200],
-            backgroundImage: widget.clubData['imageUrl'] != null 
-                ? NetworkImage(widget.clubData['imageUrl']) 
+            backgroundImage: widget.clubData['imageUrl'] != null
+                ? NetworkImage(widget.clubData['imageUrl'])
                 : null,
             child: widget.clubData['imageUrl'] == null
                 ? Icon(Icons.sports_tennis, color: Colors.green[800], size: 20)
@@ -1453,20 +1462,23 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
       child: Wrap(
         spacing: 6,
         runSpacing: 6,
-        children: tags.take(3).map((tag) => Container(
-          padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.grey[100],
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Text(
-            '#$tag',
-            style: TextStyle(
-              fontSize: 12,
-              color: Colors.grey[700],
-            ),
-          ),
-        )).toList(),
+        children: tags
+            .take(3)
+            .map((tag) => Container(
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.grey[100],
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    '#$tag',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                ))
+            .toList(),
       ),
     );
   }
@@ -1523,7 +1535,8 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
       child: Container(
         padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: isActive ? Color(0xFFD7F520).withOpacity(0.2) : Colors.grey[50],
+          color:
+              isActive ? Color(0xFFD7F520).withOpacity(0.2) : Colors.grey[50],
           borderRadius: BorderRadius.circular(20),
         ),
         child: Row(
@@ -1559,7 +1572,8 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
       return '${difference.inMinutes}m ago';
     } else if (difference.inHours < 24) {
       return '${difference.inHours}h ago';
-    } else if (difference.inDays < 7) {      return '${difference.inDays}d ago';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays}d ago';
     } else {
       return DateFormat('MMM d, y').format(date);
     }

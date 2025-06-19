@@ -36,10 +36,12 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _currentTabIndex = widget.initialTabIndex;
   }
+
   // Get user data stream for real-time updates
   Stream<Map<String, dynamic>?> getUserDataStream() {
     return UserService.getCurrentUserDataStream();
   }
+
   Stream<QuerySnapshot> getUserRelatedClubs() {
     final uid = user.uid;
     return FirebaseFirestore.instance
@@ -47,6 +49,7 @@ class _HomePageState extends State<HomePage> {
         .where('members', arrayContains: uid)
         .snapshots();
   }
+
   // Fetch only user's joined clubs (not public clubs)
   Future<List<String>> _getRelevantClubIds() async {
     final uid = user.uid;
@@ -77,6 +80,7 @@ class _HomePageState extends State<HomePage> {
     }
     return allItems;
   }
+
   Widget _buildEventsOrPostsTab(bool isEvent) {
     return FutureBuilder<List<Map<String, dynamic>>>(
       future: _getAllClubItems(isEvent: isEvent),
@@ -136,7 +140,7 @@ class _HomePageState extends State<HomePage> {
             ),
           );
         }
-        
+
         // Sort items by creation date (newest first)
         items.sort((a, b) {
           final aTime = a['createdAt'] as Timestamp?;
@@ -237,13 +241,15 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             child: Column(
-              children: [                Row(
+              children: [
+                Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [                    StreamBuilder<Map<String, dynamic>?>(
+                  children: [
+                    StreamBuilder<Map<String, dynamic>?>(
                       stream: getUserDataStream(),
                       builder: (context, snapshot) {
                         final userData = snapshot.data;
-                        
+
                         return Row(
                           children: [
                             _buildUserAvatar(userData),
@@ -342,13 +348,16 @@ class _HomePageState extends State<HomePage> {
                   decoration: BoxDecoration(
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(20),
-                  ),                  child: Row(
-                    children: [                      // Scrollable joined clubs section (left side)
+                  ),
+                  child: Row(
+                    children: [
+                      // Scrollable joined clubs section (left side)
                       Expanded(
                         child: StreamBuilder<QuerySnapshot>(
                           stream: getUserRelatedClubs(),
                           builder: (context, snapshot) {
-                            if (snapshot.connectionState == ConnectionState.waiting) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
                               return SingleChildScrollView(
                                 scrollDirection: Axis.horizontal,
                                 child: Row(
@@ -362,8 +371,9 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               );
                             }
-                            
-                            if (snapshot.data == null || snapshot.data!.docs.isEmpty) {
+
+                            if (snapshot.data == null ||
+                                snapshot.data!.docs.isEmpty) {
                               // No communities joined, show placeholder
                               return SingleChildScrollView(
                                 scrollDirection: Axis.horizontal,
@@ -376,10 +386,14 @@ class _HomePageState extends State<HomePage> {
                                           CircleAvatar(
                                             radius: 30,
                                             backgroundColor: Colors.grey[300],
-                                            child: Icon(Icons.groups_outlined, color: Colors.grey[600]),
+                                            child: Icon(Icons.groups_outlined,
+                                                color: Colors.grey[600]),
                                           ),
                                           SizedBox(height: 8),
-                                          Text('No clubs yet', style: TextStyle(fontSize: 10, color: Colors.grey[600])),
+                                          Text('No clubs yet',
+                                              style: TextStyle(
+                                                  fontSize: 10,
+                                                  color: Colors.grey[600])),
                                         ],
                                       ),
                                     ),
@@ -387,13 +401,14 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               );
                             }
-                            
+
                             // Show all clubs the user is related to in a scrollable row
                             return SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
                               child: Row(
                                 children: snapshot.data!.docs.map((doc) {
-                                  final club = doc.data() as Map<String, dynamic>;
+                                  final club =
+                                      doc.data() as Map<String, dynamic>;
                                   return GestureDetector(
                                     onTap: () {
                                       Navigator.push(
@@ -407,17 +422,20 @@ class _HomePageState extends State<HomePage> {
                                       );
                                     },
                                     child: Padding(
-                                      padding: const EdgeInsets.only(right: 16.0),
+                                      padding:
+                                          const EdgeInsets.only(right: 16.0),
                                       child: Column(
                                         children: [
                                           CircleAvatar(
                                             radius: 30,
                                             backgroundColor: Colors.green[200],
-                                            backgroundImage: club['imageUrl'] != null
+                                            backgroundImage: club['imageUrl'] !=
+                                                    null
                                                 ? NetworkImage(club['imageUrl'])
                                                 : null,
                                             child: club['imageUrl'] == null
-                                                ? Icon(Icons.sports_tennis, color: Colors.green[800])
+                                                ? Icon(Icons.sports_tennis,
+                                                    color: Colors.green[800])
                                                 : null,
                                           ),
                                           SizedBox(height: 8),
@@ -455,7 +473,8 @@ class _HomePageState extends State<HomePage> {
                             CircleAvatar(
                               radius: 30,
                               backgroundColor: Colors.grey[200],
-                              child: Icon(Icons.group_add, color: Colors.grey[800]),
+                              child: Icon(Icons.group_add,
+                                  color: Colors.grey[800]),
                             ),
                             SizedBox(height: 8),
                             Container(
@@ -469,7 +488,7 @@ class _HomePageState extends State<HomePage> {
                           ],
                         ),
                       ),
-                      SizedBox(width: 10),                      // Fixed arrow button (right side)
+                      SizedBox(width: 10), // Fixed arrow button (right side)
                       GestureDetector(
                         onTap: () {
                           Navigator.push(
@@ -479,7 +498,8 @@ class _HomePageState extends State<HomePage> {
                             ),
                           );
                         },
-                        child: Icon(Icons.chevron_right, size: 30, color: Colors.grey[600]),
+                        child: Icon(Icons.chevron_right,
+                            size: 30, color: Colors.grey[600]),
                       ),
                     ],
                   ),
@@ -588,8 +608,10 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
+
   // Helper method to build user avatar
-  Widget _buildUserAvatar(Map<String, dynamic>? userData, {double radius = 20}) {
+  Widget _buildUserAvatar(Map<String, dynamic>? userData,
+      {double radius = 20}) {
     return UserAvatar(
       userData: userData,
       radius: radius,
@@ -653,7 +675,8 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildEventOrPostCard(Map<String, dynamic> data, bool isEvent, int index) {
+  Widget _buildEventOrPostCard(
+      Map<String, dynamic> data, bool isEvent, int index) {
     final createdAt = data['createdAt'] as Timestamp?;
     final imageUrl = data['imageUrl'] as String?;
     final content = data['content'] as String? ?? '';
@@ -663,7 +686,8 @@ class _HomePageState extends State<HomePage> {
     final likesCount = data['likesCount'] as int? ?? 0;
     final commentsCount = data['commentsCount'] as int? ?? 0;
     final tags = data['tags'] as List?;
-    final clubId = data['clubId'] as String?;    return AnimatedContainer(
+    final clubId = data['clubId'] as String?;
+    return AnimatedContainer(
       duration: Duration(milliseconds: 300 + (index * 100)),
       curve: Curves.easeOutBack,
       margin: EdgeInsets.only(bottom: 16),
@@ -695,80 +719,79 @@ class _HomePageState extends State<HomePage> {
                 offset: Offset(0, 4),
               ),
             ],
-          border: isImportant
-              ? Border.all(color: Colors.amber, width: 2)
-              : null,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header with club info and timestamp
-            _buildCardHeader(data, isEvent, createdAt, clubId),
-            
-            // Category and importance badges
-            if (category != null || isImportant)
-              _buildBadgeRow(category, isImportant, isEvent),
-            
-            // Title (for posts)
-            if (title != null && title.isNotEmpty)
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+            border:
+                isImportant ? Border.all(color: Colors.amber, width: 2) : null,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header with club info and timestamp
+              _buildCardHeader(data, isEvent, createdAt, clubId),
+
+              // Category and importance badges
+              if (category != null || isImportant)
+                _buildBadgeRow(category, isImportant, isEvent),
+
+              // Title (for posts)
+              if (title != null && title.isNotEmpty)
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
                   ),
                 ),
-              ),
-            
-            // Content
-            if (content.isNotEmpty)
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                child: Text(
-                  content,
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.black87,
-                    height: 1.4,
+
+              // Content
+              if (content.isNotEmpty)
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Text(
+                    content,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Colors.black87,
+                      height: 1.4,
+                    ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
                 ),
-              ),
-            
-            // Image
-            if (imageUrl != null && imageUrl.isNotEmpty)
-              _buildCardImage(imageUrl),
-            
-            // Tags
-            if (tags != null && tags.isNotEmpty)
-              _buildTagsRow(tags),
-            
-            // Event specific info
-            if (isEvent)              _buildEventInfo(data),
-            
-            // Action buttons (likes, comments, share)
-            _buildActionButtons(likesCount, commentsCount, isEvent),
-          ],
+
+              // Image
+              if (imageUrl != null && imageUrl.isNotEmpty)
+                _buildCardImage(imageUrl),
+
+              // Tags
+              if (tags != null && tags.isNotEmpty) _buildTagsRow(tags),
+
+              // Event specific info
+              if (isEvent) _buildEventInfo(data),
+
+              // Action buttons (likes, comments, share)
+              _buildActionButtons(likesCount, commentsCount, isEvent),
+            ],
+          ),
         ),
-      ),
       ),
     );
   }
 
-  Widget _buildCardHeader(Map<String, dynamic> data, bool isEvent, Timestamp? createdAt, String? clubId) {
+  Widget _buildCardHeader(Map<String, dynamic> data, bool isEvent,
+      Timestamp? createdAt, String? clubId) {
     return FutureBuilder<DocumentSnapshot?>(
-      future: clubId != null 
+      future: clubId != null
           ? FirebaseFirestore.instance.collection('club').doc(clubId).get()
           : null,
       builder: (context, clubSnapshot) {
         final clubData = clubSnapshot.data?.data() as Map<String, dynamic>?;
         final clubName = clubData?['name'] ?? 'Unknown Club';
         final clubImage = clubData?['imageUrl'];
-        
+
         return Padding(
           padding: EdgeInsets.all(16),
           child: Row(
@@ -777,9 +800,11 @@ class _HomePageState extends State<HomePage> {
               CircleAvatar(
                 radius: 20,
                 backgroundColor: Colors.green[200],
-                backgroundImage: clubImage != null ? NetworkImage(clubImage) : null,
+                backgroundImage:
+                    clubImage != null ? NetworkImage(clubImage) : null,
                 child: clubImage == null
-                    ? Icon(Icons.sports_tennis, color: Colors.green[800], size: 20)
+                    ? Icon(Icons.sports_tennis,
+                        color: Colors.green[800], size: 20)
                     : null,
               ),
               SizedBox(width: 12),
@@ -867,7 +892,8 @@ class _HomePageState extends State<HomePage> {
               decoration: BoxDecoration(
                 color: _getCategoryColor(category).withOpacity(0.1),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _getCategoryColor(category), width: 1),
+                border:
+                    Border.all(color: _getCategoryColor(category), width: 1),
               ),
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -971,9 +997,9 @@ class _HomePageState extends State<HomePage> {
     final location = data['location'] as String?;
     final maxParticipants = data['maxParticipants'] as int?;
     final participants = data['participants'] as List?;
-    
+
     if (eventDate == null && location == null) return SizedBox.shrink();
-    
+
     return Container(
       margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       padding: EdgeInsets.all(12),
@@ -1136,11 +1162,11 @@ class _HomePageState extends State<HomePage> {
 
   String _formatTimestamp(Timestamp? timestamp) {
     if (timestamp == null) return 'Unknown time';
-    
+
     final now = DateTime.now();
     final date = timestamp.toDate();
     final difference = now.difference(date);
-    
+
     if (difference.inMinutes < 1) {
       return 'Just now';
     } else if (difference.inHours < 1) {
@@ -1157,9 +1183,10 @@ class _HomePageState extends State<HomePage> {
   String _formatEventDate(Timestamp timestamp) {
     final date = timestamp.toDate();
     final now = DateTime.now();
-    final isToday = date.day == now.day && date.month == now.month && date.year == now.year;
+    final isToday =
+        date.day == now.day && date.month == now.month && date.year == now.year;
     final isTomorrow = date.difference(now).inDays == 1;
-    
+
     if (isToday) {
       return 'Today at ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     } else if (isTomorrow) {
@@ -1168,6 +1195,7 @@ class _HomePageState extends State<HomePage> {
       return '${date.day}/${date.month}/${date.year} at ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
     }
   }
+
   Color _getCategoryColor(String category) {
     switch (category) {
       case 'Announcement':
@@ -1200,7 +1228,8 @@ class _HomePageState extends State<HomePage> {
       case 'Event Recap':
         return Icon(Icons.photo_library, size: 12, color: Colors.purple);
       case 'Tips & Advice':
-        return Icon(Icons.lightbulb_outline, size: 12, color: Colors.yellow[700]);
+        return Icon(Icons.lightbulb_outline,
+            size: 12, color: Colors.yellow[700]);
       default:
         return Icon(Icons.label, size: 12, color: Colors.grey);
     }

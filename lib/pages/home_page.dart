@@ -11,6 +11,8 @@ import 'package:map_project/pages/create_event.dart';
 import 'package:map_project/pages/create_post.dart';
 import 'package:map_project/pages/my_clubs_page.dart';
 import 'package:map_project/pages/post_details_page.dart';
+import 'package:map_project/widgets/user_avatar.dart';
+import 'package:map_project/services/user_service.dart';
 
 class HomePage extends StatefulWidget {
   final int initialTabIndex;
@@ -34,13 +36,9 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _currentTabIndex = widget.initialTabIndex;
   }
-
   // Get user data stream for real-time updates
-  Stream<DocumentSnapshot> getUserDataStream() {
-    return FirebaseFirestore.instance
-        .collection('users')
-        .doc(user.uid)
-        .snapshots();
+  Stream<Map<String, dynamic>?> getUserDataStream() {
+    return UserService.getCurrentUserDataStream();
   }
   Stream<QuerySnapshot> getUserRelatedClubs() {
     final uid = user.uid;
@@ -241,14 +239,10 @@ class _HomePageState extends State<HomePage> {
             child: Column(
               children: [                Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    StreamBuilder<DocumentSnapshot>(
+                  children: [                    StreamBuilder<Map<String, dynamic>?>(
                       stream: getUserDataStream(),
                       builder: (context, snapshot) {
-                        Map<String, dynamic>? userData;
-                        if (snapshot.hasData && snapshot.data!.exists) {
-                          userData = snapshot.data!.data() as Map<String, dynamic>?;
-                        }
+                        final userData = snapshot.data;
                         
                         return Row(
                           children: [
@@ -594,16 +588,11 @@ class _HomePageState extends State<HomePage> {
       ),
     );
   }
-
   // Helper method to build user avatar
   Widget _buildUserAvatar(Map<String, dynamic>? userData, {double radius = 20}) {
-    return CircleAvatar(
+    return UserAvatar(
+      userData: userData,
       radius: radius,
-      backgroundImage: userData != null && 
-          userData['photoUrl'] != null && 
-          userData['photoUrl'].toString().isNotEmpty
-          ? NetworkImage(userData['photoUrl'])
-          : const AssetImage('assets/images/profile.jpg') as ImageProvider,
     );
   }
 

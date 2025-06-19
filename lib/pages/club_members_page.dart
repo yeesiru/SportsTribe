@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:map_project/widgets/user_avatar.dart';
 
 class ClubMembersPage extends StatefulWidget {
   final String clubId;
@@ -329,16 +330,10 @@ class _ClubMembersPageState extends State<ClubMembersPage> {
                             return Padding(
                               padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
                               child: Row(
-                                children: [
-                                  CircleAvatar(
+                                children: [                                  UserAvatar(
+                                    userData: member,
                                     radius: 25,
-                                    backgroundColor: Colors.grey[200],
-                                    backgroundImage: member['photoUrl'] != null
-                                        ? NetworkImage(member['photoUrl'])
-                                        : null,
-                                    child: member['photoUrl'] == null
-                                        ? Icon(Icons.person, color: Colors.grey[600])
-                                        : null,
+                                    fallbackIcon: Icons.person,
                                   ),
                                   SizedBox(width: 16),
                                   Expanded(

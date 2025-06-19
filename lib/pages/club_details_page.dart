@@ -7,6 +7,7 @@ import 'package:map_project/pages/create_event.dart';
 import 'package:map_project/pages/create_post.dart';
 import 'package:map_project/pages/post_details_page.dart';
 import 'package:map_project/pages/club_members_page.dart';
+import 'package:map_project/widgets/user_avatar.dart';
 
 class ClubDetailsPage extends StatefulWidget {
   final String clubId;
@@ -1104,10 +1105,7 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                         ],
                       ),
                     );
-                  }
-
-                  String userName = 'Unknown User';
-                  String? userPhotoUrl;
+                  }                  String userName = 'Unknown User';
 
                   if (userSnapshot.hasData && userSnapshot.data!.exists) {
                     final userData =
@@ -1115,21 +1113,18 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                     userName = userData?['name'] ??
                         userData?['displayName'] ??
                         'Unknown User';
-                    userPhotoUrl = userData?['photoUrl'];
                   }
+
+                  final userData = userSnapshot.data?.data() as Map<String, dynamic>?;
 
                   return Card(
                     margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                     elevation: 2,
                     child: ListTile(
-                      leading: CircleAvatar(
-                        backgroundImage:
-                            userPhotoUrl != null && userPhotoUrl.isNotEmpty
-                                ? NetworkImage(userPhotoUrl)
-                                : null,
-                        child: userPhotoUrl == null || userPhotoUrl.isEmpty
-                            ? Icon(Icons.person_outline)
-                            : null,
+                      leading: UserAvatar(
+                        userData: userData,
+                        radius: 20,
+                        fallbackIcon: Icons.person_outline,
                       ),
                       title: Text(
                         userName,

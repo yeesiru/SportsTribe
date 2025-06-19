@@ -3,6 +3,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'dart:math' as math;
+import 'package:map_project/widgets/user_avatar.dart';
+import 'package:map_project/services/user_service.dart';
 
 class PostDetailsPage extends StatefulWidget {
   final String clubId;
@@ -1178,31 +1180,17 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
       future: authorId != null 
           ? FirebaseFirestore.instance.collection('users').doc(authorId).get()
           : null,
-      builder: (context, userSnapshot) {
-        final userData = userSnapshot.data?.data() as Map<String, dynamic>?;
+      builder: (context, userSnapshot) {        final userData = userSnapshot.data?.data() as Map<String, dynamic>?;
         final authorName = userData?['name'] ?? 'Unknown User';
-        final authorAvatar = userData?['avatarUrl'] as String?;
 
         return Container(
           padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Author avatar
-              CircleAvatar(
+            children: [              // Author avatar
+              UserAvatar(
+                userData: userData,
                 radius: 16,
-                backgroundColor: Color(0xFFD7F520).withOpacity(0.3),
-                backgroundImage: authorAvatar != null ? NetworkImage(authorAvatar) : null,
-                child: authorAvatar == null
-                    ? Text(
-                        authorName.isNotEmpty ? authorName[0].toUpperCase() : 'U',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                          color: Colors.black87,
-                        ),
-                      )
-                    : null,
               ),
               SizedBox(width: 12),
               // Comment content
@@ -1371,7 +1359,6 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
       },
     );
   }
-
   Widget _buildCommentInput() {
     final allowComments = widget.postData['allowComments'] as bool? ?? true;
     
@@ -1392,24 +1379,17 @@ class _PostDetailsPageState extends State<PostDetailsPage> {
           ),
         ],
       ),
-      child: Row(
-        children: [
-          // User avatar
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: Color(0xFFD7F520).withOpacity(0.3),
-            child: Text(
-              user.displayName?.isNotEmpty == true 
-                  ? user.displayName![0].toUpperCase()
-                  : user.email?.isNotEmpty == true
-                      ? user.email![0].toUpperCase()
-                      : 'U',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-                color: Colors.black87,
-              ),
-            ),
+      child: Row(        children: [
+          // User avatar with current user data
+          StreamBuilder<Map<String, dynamic>?>(
+            stream: UserService.getCurrentUserDataStream(),
+            builder: (context, snapshot) {
+              final userData = snapshot.data;
+              return UserAvatar(
+                userData: userData,
+                radius: 16,
+              );
+            },
           ),
           SizedBox(width: 12),
           // Comment input

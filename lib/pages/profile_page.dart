@@ -1,6 +1,9 @@
+import 'dart:convert';
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:map_project/pages/main_page.dart';
 import 'package:map_project/pages/chat_page.dart';
 import 'package:map_project/pages/leaderboard_page.dart';
@@ -20,12 +23,15 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   final user = FirebaseAuth.instance.currentUser!;
+  final ImagePicker _imagePicker = ImagePicker();
+  bool _isUploadingImage = false;
 
   // Profile information
   String username = '';
   String birthDate = 'Not yet set';
   String gender = 'Not yet set';
   String photoUrl = '';
+  String photoBase64 = ''; // Store base64 image data
   String email = '';
   String role = '';
   List<dynamic> sportsList = [];
@@ -54,6 +60,7 @@ class _ProfilePageState extends State<ProfilePage> {
         birthDate = data['birthDate'] ?? 'Not yet set';
         gender = data['gender'] ?? 'Not yet set';
         photoUrl = data['photoUrl'] ?? '';
+        photoBase64 = data['photoBase64'] ?? ''; // Get base64 image
         email = data['email'] ?? user.email ?? '';
         role = data['role'] ?? '';
         sportsList = data['sportsList'] ?? [];
@@ -72,13 +79,15 @@ class _ProfilePageState extends State<ProfilePage> {
       await _fetchUserProfile();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Profile updated!'), backgroundColor: Colors.green),
+          SnackBar(
+              content: Text('Profile updated!'), backgroundColor: Colors.green),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Update failed: $e'), backgroundColor: Colors.red),
+          SnackBar(
+              content: Text('Update failed: $e'), backgroundColor: Colors.red),
         );
       }
     }
@@ -138,7 +147,8 @@ class _ProfilePageState extends State<ProfilePage> {
             onPressed: () async {
               final newItem = controller.text.trim();
               if (newItem.isNotEmpty) {
-                final updatedList = List<String>.from(currentList)..add(newItem);
+                final updatedList = List<String>.from(currentList)
+                  ..add(newItem);
                 await _updateUserProfile({field: updatedList});
               }
               Navigator.pop(context);
@@ -183,6 +193,200 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
+  Future<void> _pickAndUploadImage() async {
+    try {
+      // Show image source selection dialog
+      final ImageSource? source = await showDialog<ImageSource>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('Select Image Source'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ListTile(
+                  leading: Icon(Icons.camera_alt),
+                  title: Text('Camera'),
+                  onTap: () => Navigator.pop(context, ImageSource.camera),
+                ),
+                ListTile(
+                  leading: Icon(Icons.photo_library),
+                  title: Text('Gallery'),
+                  onTap: () => Navigator.pop(context, ImageSource.gallery),
+                ),
+              ],
+            ),
+          );
+        },
+      );
+
+      if (source == null) return;
+
+      setState(() {
+        _isUploadingImage = true;
+      });
+
+      // Pick image
+      final XFile? pickedFile = await _imagePicker.pickImage(
+        source: source,
+        maxWidth: 800,
+        maxHeight: 800,
+        imageQuality: 70,
+      );
+
+      if (pickedFile == null) {
+        setState(() {
+          _isUploadingImage = false;
+        });
+        return;
+      }
+
+      // Read image as bytes
+      final Uint8List imageBytes = await pickedFile.readAsBytes();
+
+      // Convert to base64
+      final String base64Image = base64Encode(imageBytes);
+
+      // Check size limit (Firestore has a document size limit of 1MB)
+      if (base64Image.length > 800000) {
+        // ~800KB limit to be safe
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content:
+                  Text('Image is too large. Please select a smaller image.'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+        setState(() {
+          _isUploadingImage = false;
+        });
+        return;
+      }
+
+      // Update Firestore with base64 image
+      await _updateUserProfile({'photoBase64': base64Image});
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Profile picture updated successfully!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      print('Error uploading image: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to upload image: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isUploadingImage = false;
+        });
+      }
+    }
+  }
+
+  // Method to remove profile picture
+  Future<void> _removeProfilePicture() async {
+    try {
+      await _updateUserProfile({'photoBase64': ''});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Profile picture removed'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to remove picture: ${e.toString()}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  // Method to show profile picture options
+  void _showProfilePictureOptions() {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return SafeArea(
+          child: Wrap(
+            children: [
+              ListTile(
+                leading: Icon(Icons.photo_camera),
+                title: Text('Upload New Picture'),
+                onTap: () {
+                  Navigator.pop(context);
+                  _pickAndUploadImage();
+                },
+              ),
+              if (photoBase64.isNotEmpty)
+                ListTile(
+                  leading: Icon(Icons.delete),
+                  title: Text('Remove Picture'),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _removeProfilePicture();
+                  },
+                ),
+              ListTile(
+                leading: Icon(Icons.cancel),
+                title: Text('Cancel'),
+                onTap: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Helper method to get profile image widget
+  Widget _getProfileImageWidget() {
+    if (photoBase64.isNotEmpty) {
+      try {
+        return CircleAvatar(
+          radius: 48,
+          backgroundImage: MemoryImage(base64Decode(photoBase64)),
+        );
+      } catch (e) {
+        print('Error decoding base64 image: $e');
+        // Fall back to default image
+        return CircleAvatar(
+          radius: 48,
+          backgroundImage: AssetImage('assets/images/profile.jpg'),
+        );
+      }
+    } else if (photoUrl.isNotEmpty) {
+      // Fallback to URL-based image if available
+      return CircleAvatar(
+        radius: 48,
+        backgroundImage: NetworkImage(photoUrl),
+      );
+    } else {
+      // Default profile image
+      return CircleAvatar(
+        radius: 48,
+        backgroundImage: AssetImage('assets/images/profile.jpg'),
+      );
+    }
+  }
+
   Widget _buildProfileItem({
     required IconData icon,
     required String label,
@@ -215,7 +419,8 @@ class _ProfilePageState extends State<ProfilePage> {
             GestureDetector(
               onTap: onTap,
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                 decoration: BoxDecoration(
                   color: Colors.black,
                   borderRadius: BorderRadius.circular(20),
@@ -343,33 +548,43 @@ class _ProfilePageState extends State<ProfilePage> {
                 CircleAvatar(
                   radius: 50,
                   backgroundColor: Colors.blue,
-                  child: CircleAvatar(
-                    radius: 48,
-                    backgroundImage: AssetImage('assets/images/profile.jpg'),
-                  ),
-                ),
-                // Bottom right upload icon
+                  child: _getProfileImageWidget(),
+                ), // Upload/Loading indicator
                 Positioned(
                   bottom: 0,
                   right: 0,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.1),
-                          blurRadius: 4,
-                          spreadRadius: 1,
-                        ),
-                      ],
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(4.0),
-                      child: Icon(
-                        Icons.file_upload_outlined,
-                        color: Colors.purple[300],
-                        size: 20,
+                  child: GestureDetector(
+                    onTap:
+                        _isUploadingImage ? null : _showProfilePictureOptions,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 4,
+                            spreadRadius: 1,
+                          ),
+                        ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4.0),
+                        child: _isUploadingImage
+                            ? SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                      Colors.purple[300]!),
+                                ),
+                              )
+                            : Icon(
+                                Icons.file_upload_outlined,
+                                color: Colors.purple[300],
+                                size: 20,
+                              ),
                       ),
                     ),
                   ),
@@ -418,7 +633,9 @@ class _ProfilePageState extends State<ProfilePage> {
                     _buildProfileItem(
                       icon: Icons.sports_volleyball,
                       label: 'My Sports',
-                      value: sportsList.isNotEmpty ? sportsList.join(', ') : 'None',
+                      value: sportsList.isNotEmpty
+                          ? sportsList.join(', ')
+                          : 'None',
                       onTap: () {
                         _editListField('sportsList', sportsList);
                       },

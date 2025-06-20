@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:map_project/pages/profile_page.dart';
 import 'package:map_project/pages/leaderboard_page.dart';
 import 'package:map_project/pages/home_page.dart';
+import 'package:map_project/pages/chat_room_page.dart';
+import 'package:map_project/models/club.dart';
+import 'package:map_project/services/chat_service.dart';
+import 'package:map_project/services/data_seeder.dart';
 
 class ChatPage extends StatefulWidget {
   final int initialTabIndex;
@@ -21,41 +25,19 @@ class _ChatPageState extends State<ChatPage> {
   late int _currentTabIndex;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
-  final List<ChatItem> _chats = [
-    ChatItem(
-      name: 'Badminton Squad',
-      lastMessage: 'Send your first message!',
-      time: '16:33',
-      image:
-          'assets/images/profile.jpg', // Using profile image as a placeholder until badminton.jpg is available
-      isGroup: true,
-    ),
-    ChatItem(
-      name: 'Happy',
-      lastMessage: 'Happy: Are you free?',
-      time: '10:15',
-      image: 'assets/images/profile.jpg', // Placeholder image
-    ),
-    ChatItem(
-      name: 'Steven',
-      lastMessage: 'You: I\'m coming.',
-      time: 'Yesterday',
-      image: 'assets/images/profile.jpg', // Placeholder image
-    ),
-  ];
-
-  // Filtered chats based on search
-  List<ChatItem> get _filteredChats {
+  List<Club> _getFilteredClubs(List<Club> clubs) {
     if (_searchQuery.isEmpty) {
-      return _chats;
+      return clubs;
     }
 
-    return _chats.where((chat) {
-      final name = chat.name.toLowerCase();
-      final message = chat.lastMessage.toLowerCase();
-      final query = _searchQuery.toLowerCase();
+    return clubs.where((club) {
+      final name = club.name.toLowerCase().trim();
+      final query = _searchQuery.toLowerCase().trim();
 
-      return name.contains(query) || message.contains(query);
+      // Get the first word of the club name
+      final firstWord = name.split(' ').first;
+
+      return firstWord.startsWith(query);
     }).toList();
   }
 
@@ -173,11 +155,6 @@ class _ChatPageState extends State<ChatPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {},
-        backgroundColor: Colors.black,
-        child: Icon(Icons.add, color: Colors.white),
-      ),
       body: Column(
         children: [
           Container(
@@ -252,8 +229,97 @@ class _ChatPageState extends State<ChatPage> {
                     ),
                   ),
                   Expanded(
-                    child: _filteredChats.isEmpty && _searchQuery.isNotEmpty
-                        ? Center(
+                    child: StreamBuilder<List<Club>>(
+                      stream: ChatService.getUserJoinedClubs(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return Center(child: CircularProgressIndicator());
+                        }
+
+                        if (snapshot.hasError) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.error_outline,
+                                  size: 64,
+                                  color: Colors.red[300],
+                                ),
+                                SizedBox(height: 16),
+                                Text(
+                                  'Error loading clubs',
+                                  style: TextStyle(
+                                    color: Colors.red[500],
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  '${snapshot.error}',
+                                  style: TextStyle(
+                                    color: Colors.red[400],
+                                    fontSize: 12,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.group_outlined,
+                                  size: 64,
+                                  color: Colors.grey[300],
+                                ),
+                                SizedBox(height: 16),
+                                Text(
+                                  'No clubs joined yet',
+                                  style: TextStyle(
+                                    color: Colors.grey[500],
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  'Tap the 🐛 button to create sample clubs',
+                                  style: TextStyle(
+                                    color: Colors.grey[400],
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                SizedBox(height: 16),
+                                ElevatedButton(
+                                  onPressed: () async {
+                                    await DataSeeder.seedInitialData();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                          content:
+                                              Text('Sample clubs created!')),
+                                    );
+                                  },
+                                  child: Text('Create Sample Clubs'),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Color(0xFFD7F520),
+                                    foregroundColor: Colors.black,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        final clubs = _getFilteredClubs(snapshot.data!);
+
+                        if (clubs.isEmpty && _searchQuery.isNotEmpty) {
+                          return Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -279,37 +345,58 @@ class _ChatPageState extends State<ChatPage> {
                                 ),
                               ],
                             ),
-                          )
-                        : ListView.builder(
-                            itemCount: _filteredChats.length,
-                            itemBuilder: (context, index) {
-                              final chat = _filteredChats[index];
-                              return ListTile(
-                                leading: CircleAvatar(
-                                  backgroundImage: AssetImage(chat.image),
-                                ),
-                                title: Text(
-                                  chat.name,
-                                  style: TextStyle(fontWeight: FontWeight.bold),
-                                ),
-                                subtitle: Text(
-                                  chat.lastMessage,
-                                  style: TextStyle(
-                                      color: Colors.grey[600], fontSize: 13),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                                trailing: Text(
-                                  chat.time,
-                                  style: TextStyle(
-                                      color: Colors.grey[500], fontSize: 12),
-                                ),
-                                onTap: () {
-                                  // Navigate to individual chat
-                                },
-                              );
-                            },
-                          ),
+                          );
+                        }
+
+                        return ListView.builder(
+                          itemCount: clubs.length,
+                          itemBuilder: (context, index) {
+                            final club = clubs[index];
+                            return ListTile(
+                              leading: CircleAvatar(
+                                radius: 20,
+                                backgroundColor: Colors.green[200],
+                                backgroundImage: club.imageUrl.isNotEmpty
+                                    ? NetworkImage(club.imageUrl)
+                                    : null,
+                                child: club.imageUrl.isEmpty
+                                    ? Icon(Icons.sports_tennis,
+                                        color: Colors.green[800], size: 20)
+                                    : null,
+                              ),
+                              title: Text(
+                                club.name,
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              subtitle: Text(
+                                club.lastMessage.isEmpty
+                                    ? 'No messages yet'
+                                    : club.lastMessage,
+                                style: TextStyle(
+                                    color: Colors.grey[600], fontSize: 13),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: Text(
+                                ChatService.formatTimestamp(
+                                    club.lastMessageTime),
+                                style: TextStyle(
+                                    color: Colors.grey[500], fontSize: 12),
+                              ),
+                              onTap: () {
+                                Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        ChatRoomPage(club: club),
+                                  ),
+                                );
+                              },
+                            );
+                          },
+                        );
+                      },
+                    ),
                   ),
                 ],
               ),
@@ -357,20 +444,4 @@ class _ChatPageState extends State<ChatPage> {
       ),
     );
   }
-}
-
-class ChatItem {
-  final String name;
-  final String lastMessage;
-  final String time;
-  final String image;
-  final bool isGroup;
-
-  ChatItem({
-    required this.name,
-    required this.lastMessage,
-    required this.time,
-    required this.image,
-    this.isGroup = false,
-  });
 }

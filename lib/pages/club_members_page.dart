@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:map_project/widgets/user_avatar.dart';
 
 class ClubMembersPage extends StatefulWidget {
   final String clubId;
@@ -32,15 +33,15 @@ class _ClubMembersPageState extends State<ClubMembersPage> {
   Future<void> _loadMembers() async {
     try {
       final memberIds = widget.clubData['members'] as List? ?? [];
-      
+
       List<Map<String, dynamic>> membersList = [];
-      
+
       for (String memberId in memberIds) {
         final doc = await FirebaseFirestore.instance
             .collection('users')
             .doc(memberId)
             .get();
-        
+
         if (doc.exists) {
           membersList.add({
             'id': memberId,
@@ -50,7 +51,7 @@ class _ClubMembersPageState extends State<ClubMembersPage> {
           });
         }
       }
-      
+
       setState(() {
         members = membersList;
         isLoading = false;
@@ -85,7 +86,8 @@ class _ClubMembersPageState extends State<ClubMembersPage> {
       context: context,
       builder: (context) => AlertDialog(
         title: Text('Remove Member'),
-        content: Text('Are you sure you want to remove $memberName from the club?'),
+        content:
+            Text('Are you sure you want to remove $memberName from the club?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -322,28 +324,27 @@ class _ClubMembersPageState extends State<ClubMembersPage> {
                             indent: 80,
                             endIndent: 20,
                             color: Colors.grey[200],
-                          ),                          itemBuilder: (context, index) {
+                          ),
+                          itemBuilder: (context, index) {
                             final member = members[index];
-                            final isMemberCreator = member['id'] == widget.clubData['creatorId'];
-                            
+                            final isMemberCreator =
+                                member['id'] == widget.clubData['creatorId'];
+
                             return Padding(
-                              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                              padding: EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 12),
                               child: Row(
                                 children: [
-                                  CircleAvatar(
+                                  UserAvatar(
+                                    userData: member,
                                     radius: 25,
-                                    backgroundColor: Colors.grey[200],
-                                    backgroundImage: member['photoUrl'] != null
-                                        ? NetworkImage(member['photoUrl'])
-                                        : null,
-                                    child: member['photoUrl'] == null
-                                        ? Icon(Icons.person, color: Colors.grey[600])
-                                        : null,
+                                    fallbackIcon: Icons.person,
                                   ),
                                   SizedBox(width: 16),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Row(
                                           children: [
@@ -364,7 +365,8 @@ class _ClubMembersPageState extends State<ClubMembersPage> {
                                                 ),
                                                 decoration: BoxDecoration(
                                                   color: Color(0xFFD7F520),
-                                                  borderRadius: BorderRadius.circular(10),
+                                                  borderRadius:
+                                                      BorderRadius.circular(10),
                                                 ),
                                                 child: Text(
                                                   'Creator',
@@ -400,7 +402,8 @@ class _ClubMembersPageState extends State<ClubMembersPage> {
                                         borderRadius: BorderRadius.circular(20),
                                       ),
                                       child: GestureDetector(
-                                        onTap: () => _removeMember(member['id'], member['name']),
+                                        onTap: () => _removeMember(
+                                            member['id'], member['name']),
                                         child: Text(
                                           'Remove',
                                           style: TextStyle(

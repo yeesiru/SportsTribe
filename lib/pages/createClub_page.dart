@@ -257,7 +257,19 @@ class _CreateClubPageState extends State<CreateclubPage> {
                                 hintStyle: TextStyle(color: Colors.grey),
                                 prefixIcon: Icon(Icons.sports_tennis,
                                     color: Colors.grey.shade400),
-                                //suffixIcon: _buildSuffixTag(_clubNameController.text),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide:
+                                      BorderSide(color: Colors.grey.shade300),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide:
+                                      BorderSide(color: Colors.black, width: 2),
+                                ),
                               ),
                               validator: (value) {
                                 if (value == null || value.trim().isEmpty) {
@@ -276,7 +288,19 @@ class _CreateClubPageState extends State<CreateclubPage> {
                                 labelText: 'Sport',
                                 prefixIcon: Icon(Icons.sports,
                                     color: Colors.grey.shade400),
-                                //suffixIcon: _buildSuffixTag(_selectedSport),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide:
+                                      BorderSide(color: Colors.grey.shade300),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide:
+                                      BorderSide(color: Colors.black, width: 2),
+                                ),
                               ),
                               items: _sports.map((String sport) {
                                 return DropdownMenuItem<String>(
@@ -285,11 +309,9 @@ class _CreateClubPageState extends State<CreateclubPage> {
                                 );
                               }).toList(),
                               onChanged: (String? newValue) {
-                                if (newValue != null) {
-                                  setState(() {
-                                    _selectedSport = newValue;
-                                  });
-                                }
+                                setState(() {
+                                  _selectedSport = newValue;
+                                });
                               },
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
@@ -306,9 +328,21 @@ class _CreateClubPageState extends State<CreateclubPage> {
                               value: _selectedSkillLevel,
                               decoration: InputDecoration(
                                 labelText: 'Skill Level',
-                                prefixIcon: Icon(Icons.sports_score,
+                                prefixIcon: Icon(Icons.trending_up,
                                     color: Colors.grey.shade400),
-                                //suffixIcon: _buildSuffixTag(_selectedSkillLevel),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide:
+                                      BorderSide(color: Colors.grey.shade300),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide:
+                                      BorderSide(color: Colors.black, width: 2),
+                                ),
                               ),
                               items: _skillLevels.map((String level) {
                                 return DropdownMenuItem<String>(
@@ -317,11 +351,9 @@ class _CreateClubPageState extends State<CreateclubPage> {
                                 );
                               }).toList(),
                               onChanged: (String? newValue) {
-                                if (newValue != null) {
-                                  setState(() {
-                                    _selectedSkillLevel = newValue;
-                                  });
-                                }
+                                setState(() {
+                                  _selectedSkillLevel = newValue;
+                                });
                               },
                               validator: (value) {
                                 if (value == null || value.isEmpty) {
@@ -339,9 +371,22 @@ class _CreateClubPageState extends State<CreateclubPage> {
                               decoration: InputDecoration(
                                 labelText: 'Location',
                                 hintText: 'Enter club location',
+                                hintStyle: TextStyle(color: Colors.grey),
                                 prefixIcon: Icon(Icons.location_on,
                                     color: Colors.grey.shade400),
-                                //suffixIcon: _buildSuffixTag(_locationController.text),
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                enabledBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide:
+                                      BorderSide(color: Colors.grey.shade300),
+                                ),
+                                focusedBorder: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                  borderSide:
+                                      BorderSide(color: Colors.black, width: 2),
+                                ),
                               ),
                               validator: (value) {
                                 if (value == null || value.trim().isEmpty) {
@@ -422,55 +467,6 @@ class _CreateClubPageState extends State<CreateclubPage> {
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSuffixTag(String value) {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 8),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFFE0E0E0), // light gray background
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Text(
-        value,
-        style: const TextStyle(
-          fontSize: 12,
-          color: Colors.black54,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildNavItem({
-    required IconData icon,
-    required bool isActive,
-    required VoidCallback onTap,
-    bool hasNotification = false,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            color: isActive ? Colors.deepPurple : Colors.grey,
-            size: 28,
-          ),
-          if (hasNotification)
-            Container(
-              margin: const EdgeInsets.only(top: 4),
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: Colors.red,
-                shape: BoxShape.circle,
-              ),
-            ),
         ],
       ),
     );

@@ -28,23 +28,12 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
   int _selectedTabIndex = 0;
 
   late Future<String> _creatorNameFuture;
-  bool get isUserMember =>
-      (widget.clubData['members'] as List?)?.contains(user.uid) ?? false;
-  bool get isPrivateClub => widget.clubData['isPrivate'] ?? false;
-
-  Future<bool> get hasPendingRequest async {
-    final doc = await FirebaseFirestore.instance
-        .collection('joinRequests')
-        .where('clubId', isEqualTo: widget.clubId)
-        .where('userId', isEqualTo: user.uid)
-        .where('status', isEqualTo: 'pending')
-        .get();
-    return doc.docs.isNotEmpty;
-  }
 
   Future<String> _getCreatorName() async {
     try {
       final creatorId = widget.clubData['creatorId'];
+
+      // First try to get from users collection
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(creatorId)
@@ -53,10 +42,12 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
       if (userDoc.exists) {
         return userDoc.data()?['name'] ?? 'Unknown';
       } else {
-        return 'Unknown';
+        // If user doesn't exist in users collection, try to get from Firebase Auth
+        // For now, just return a placeholder since we can't directly query Firebase Auth
+        return 'Club Creator';
       }
     } catch (e) {
-      return 'Unknown';
+      return 'Club Creator';
     }
   }
 
@@ -68,7 +59,12 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
 
   Future<void> _leaveClub() async {
     try {
-      await _removeUserFromClub(widget.clubId, user.uid);
+      await FirebaseFirestore.instance
+          .collection('club')
+          .doc(widget.clubId)
+          .update({
+        'members': FieldValue.arrayRemove([user.uid])
+      });
       if (mounted) {
         Navigator.of(context).pop(); // Close the dialog
         Navigator.of(context).pop(); // Pop the details page
@@ -81,6 +77,7 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
       }
     }
   }
+
   // Removed unused _joinClub method as joining is now handled directly in the button handler
 
   Future<void> _requestToJoin() async {
@@ -200,6 +197,7 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
     );
   }
 
+
   void _reportClub() {
     showDialog(
       context: context,
@@ -228,15 +226,14 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isCreator = widget.clubData['creatorId'] == user.uid;
+    final bool isOwner = widget.clubData['creatorId'] == user.uid;
     final bool isMember =
         (widget.clubData['members'] as List).contains(user.uid);
     final DateTime createdAt =
         (widget.clubData['createdAt'] as Timestamp).toDate();
     final String formattedDate = DateFormat('MMMM d, y').format(createdAt);
-    final List<String> tabs = isCreator && isPrivateClub
-        ? ['Events', 'Posts', 'Requests']
-        : ['Events', 'Posts'];
+    final tabs =
+        isOwner ? ['Events', 'Posts', 'Requests'] : ['Events', 'Posts'];
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -371,49 +368,48 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                             }
                           }
                         },
-                        itemBuilder: (context) => [
-                          PopupMenuItem(
-                            value: 'edit',
-                            child: Text('Edit Club'),
-                          ),
-                          PopupMenuItem(
-                            value: 'delete',
-                            child: Text('Delete Club',
-                                style: TextStyle(color: Colors.red)),
-                          ),
-                        ],
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: 'edit',
+                        child: Text('Edit Club'),
                       ),
-                    if (!isCreator)
+                      PopupMenuItem(
+                        value: 'delete',
+                        child: Text('Delete Club',
+                            style: TextStyle(color: Colors.red)),
+                      ),
+                    ],
+                  ),
+                if (!isCreator)
                       IconButton(
                         icon: Icon(Icons.report_problem_outlined,
                             color: Colors.black),
                         onPressed: _reportClub,
                       ),
+              ],
+            ),
+
+            // Club Info
+            SliverToBoxAdapter(
+              child: Container(
+                margin: EdgeInsets.only(top: 0, left: 0, right: 0, bottom: 0),
+                padding: EdgeInsets.all(20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius:
+                      BorderRadius.vertical(bottom: Radius.circular(30)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.white.withOpacity(0.15),
+                      blurRadius: 10,
+                      offset: Offset(0, 4),
+                    ),
                   ],
                 ),
-
-                // Club Info
-                SliverToBoxAdapter(
-                  child: Container(
-                    margin:
-                        EdgeInsets.only(top: 0, left: 0, right: 0, bottom: 0),
-                    padding: EdgeInsets.all(20),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius:
-                          BorderRadius.vertical(bottom: Radius.circular(30)),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.white.withOpacity(0.15),
-                          blurRadius: 10,
-                          offset: Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Club Title with privacy indicator
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Club Title with privacy indicator
                         Row(
                           children: [
                             Expanded(
@@ -463,16 +459,20 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                             ),
                           ],
                         ),
-                        SizedBox(height: 20),
+                    SizedBox(height: 20),
 
-                        // Club Stats
-                        Container(
-                          padding: EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: Color(0xFFD7F520).withOpacity(0.15),
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Column(
+                    // Club Stats
+                    Container(
+                      padding: EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Color(0xFFD7F520).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                      child: Column(
+                        children: [
+                          // Club Details Row
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
                             children: [
                               // Club Details Row
                               Row(
@@ -504,70 +504,69 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                                   ),
                                 ],
                               ),
-                              Divider(height: 30, color: Color(0xFFD7F520)),
-                              // Creator Info
-                              FutureBuilder<String>(
-                                future:
-                                    _creatorNameFuture, // <-- Ensure this is set!
-                                builder: (context, snapshot) {
-                                  if (snapshot.connectionState ==
-                                      ConnectionState.waiting) {
-                                    return Row(
-                                      children: [
-                                        Icon(Icons.person_outline,
-                                            color: Colors.grey[700]),
-                                        SizedBox(width: 8),
-                                        Text('Loading...',
-                                            style: TextStyle(
-                                                color: Colors.grey[700])),
-                                      ],
-                                    );
-                                  } else if (snapshot.hasError) {
-                                    return Row(
-                                      children: [
-                                        Icon(Icons.person_outline,
-                                            color: Colors.grey[700]),
-                                        SizedBox(width: 8),
-                                        Text('Error fetching creator',
-                                            style: TextStyle(
-                                                color: Colors.grey[700])),
-                                      ],
-                                    );
-                                  } else {
-                                    return Row(
-                                      children: [
-                                        Icon(Icons.person_outline,
-                                            color: Colors.grey[700]),
-                                        SizedBox(width: 8),
-                                        Text(
-                                          'Created by: ${snapshot.data}',
-                                          style: TextStyle(
-                                              color: Colors.grey[700]),
-                                        ),
-                                      ],
-                                    );
-                                  }
-                                },
-                              ),
+                          Divider(height: 30, color: Color(0xFFD7F520)),
+                          // Creator Info
+                          FutureBuilder<String>(
+                            future:
+                                _creatorNameFuture, // <-- Ensure this is set!
+                            builder: (context, snapshot) {
+                              if (snapshot.connectionState ==
+                                  ConnectionState.waiting) {
+                                return Row(
+                                  children: [
+                                    Icon(Icons.person_outline,
+                                        color: Colors.grey[700]),
+                                    SizedBox(width: 8),
+                                    Text('Loading...',
+                                        style:
+                                            TextStyle(color: Colors.grey[700])),
+                                  ],
+                                );
+                              } else if (snapshot.hasError) {
+                                return Row(
+                                  children: [
+                                    Icon(Icons.person_outline,
+                                        color: Colors.grey[700]),
+                                    SizedBox(width: 8),
+                                    Text('Error fetching creator',
+                                        style:
+                                            TextStyle(color: Colors.grey[700])),
+                                  ],
+                                );
+                              } else {
+                                return Row(
+                                  children: [
+                                    Icon(Icons.person_outline,
+                                        color: Colors.grey[700]),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Created by: ${snapshot.data}',
+                                      style: TextStyle(color: Colors.grey[700]),
+                                    ),
+                                  ],
+                                );
+                              }
+                            },
+                          ),
 
-                              SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Icon(Icons.calendar_today,
-                                      color: Colors.grey[700]),
-                                  SizedBox(width: 8),
-                                  Text(
-                                    'Created on: $formattedDate',
-                                    style: TextStyle(color: Colors.grey[700]),
-                                  ),
-                                ],
+                          SizedBox(height: 8),
+                          Row(
+                            children: [
+                              Icon(Icons.calendar_today,
+                                  color: Colors.grey[700]),
+                              SizedBox(width: 8),
+                              Text(
+                                'Created on: $formattedDate',
+                                style: TextStyle(color: Colors.grey[700]),
                               ),
                             ],
                           ),
-                        ),
-                        SizedBox(height: 20),
+                        ],
+                      ),
+                    ),
+                    SizedBox(height: 20),
 
-                        // Join/Leave/Request Button (only one visible at a time)
+                    // Join/Leave/Request Button (only one visible at a time)
                         if (!isCreator) ...[
                           SizedBox(
                             width: double.infinity,
@@ -700,6 +699,7 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                     ),
                   ),
                 ),
+
                 // Tab Content
                 SliverToBoxAdapter(
                   child: Padding(
@@ -799,24 +799,115 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
       ),
     );
   }
+}
+                
+Widget _buildEventsTabWithImages(String clubId, bool isOwner) {
+  return StreamBuilder<QuerySnapshot>(
+    stream: FirebaseFirestore.instance
+        .collection('club')
+        .doc(clubId)
+        .collection('events')
+        .orderBy('createdAt', descending: true)
+        .snapshots(),
+    builder: (context, snapshot) {
+      if (snapshot.connectionState == ConnectionState.waiting) {
+        return Center(child: CircularProgressIndicator());
+      } else if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        return Center(child: Text('No events yet'));
+      } else {
+        return ListView.builder(
+          shrinkWrap: true,
+          physics: NeverScrollableScrollPhysics(),
+          itemCount: snapshot.data!.docs.length,
+          itemBuilder: (context, index) {
+            var event = snapshot.data!.docs[index];
+            final data = event.data() as Map<String, dynamic>;
+            final participants = data['participants'] as List? ?? [];
+            final maxParticipants = data['maxParticipants'] ?? 0;
+            return Card(
+              margin: EdgeInsets.only(bottom: 16, left: 16, right: 16),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (data['imageUrl'] != null && data['imageUrl'] != '')
+                    ClipRRect(
+                      borderRadius:
+                          BorderRadius.vertical(top: Radius.circular(16)),
+                      child: Image.network(
+                        data['imageUrl'],
+                        height: 180,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ListTile(
+                    leading: Icon(Icons.event),
+                    title: Text(data['title'] ?? 'Untitled Event'),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                            'Participants: ${participants.length}/$maxParticipants'),
+                        if (data['date'] != null)
+                          Text(
+                              'Date: ${(data['date'] as Timestamp).toDate().toString().split(' ')[0]}'),
+                        if (data['location'] != null)
+                          Text('Location: ${data['location']}'),
+                      ],
+                    ),
+                    trailing: isOwner &&
+                            data['createdBy'] ==
+                                FirebaseAuth.instance.currentUser?.uid
+                        ? PopupMenuButton<String>(
+                            onSelected: (value) {
+                              // TODO: Implement edit, delete, archive, view participants
+                            },
+                            itemBuilder: (context) => [
+                              PopupMenuItem(
+                                  value: 'edit',
+                                  child: Row(children: [
+                                    Icon(Icons.edit),
+                                    SizedBox(width: 8),
+                                    Text('Edit')
+                                  ])),
+                              PopupMenuItem(
+                                  value: 'delete',
+                                  child: Row(children: [
+                                    Icon(Icons.delete),
+                                    SizedBox(width: 8),
+                                    Text('Delete')
+                                  ])),
+                              PopupMenuItem(
+                                  value: 'archive',
+                                  child: Row(children: [
+                                    Icon(Icons.archive),
+                                    SizedBox(width: 8),
+                                    Text('Archive')
+                                  ])),
+                              PopupMenuItem(
+                                  value: 'participants',
+                                  child: Row(children: [
+                                    Icon(Icons.group),
+                                    SizedBox(width: 8),
+                                    Text('View participants')
+                                  ])),
+                            ],
+                          )
+                        : null,
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      }
+    },
+  );
+}
 
-  /*
-   * IMPORTANT: To completely prevent duplicate requests at the database level,
-   * create a composite index in Firestore console:
-   * 
-   * Collection: joinRequests
-   * Fields: clubId (Ascending), userId (Ascending), status (Ascending)
-   * 
-   * You can also create a unique constraint by setting up Firestore security rules:
-   * 
-   * match /joinRequests/{requestId} {
-   *   allow create: if !exists(/databases/$(database)/documents/joinRequests/$(request.auth.uid + '_' + resource.data.clubId))
-   *     && request.auth != null 
-   *     && request.auth.uid == resource.data.userId;
-   * }
-   */
-
-  // Helper method to ensure unique requests using transactions
+// Helper method to ensure unique requests using transactions
   Future<bool> _createUniqueRequest() async {
     try {
       final firestore = FirebaseFirestore.instance;
@@ -922,100 +1013,6 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
             return _buildPostCard(data, index);
           }).toList(),
         );
-      },
-    );
-  }
-
-  Widget _buildEventsTabWithImages(String clubId, bool isOwner) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('club')
-          .doc(clubId)
-          .collection('events')
-          .orderBy('createdAt', descending: true)
-          .snapshots(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return Center(child: CircularProgressIndicator());
-        } else if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-          return Center(child: Text('No events yet'));
-        } else {
-          return ListView.builder(
-            shrinkWrap: true,
-            physics: NeverScrollableScrollPhysics(),
-            itemCount: snapshot.data!.docs.length,
-            itemBuilder: (context, index) {
-              var event = snapshot.data!.docs[index];
-              final data = event.data() as Map<String, dynamic>;
-              return Card(
-                margin: EdgeInsets.only(bottom: 16, left: 16, right: 16),
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (data['imageUrl'] != null && data['imageUrl'] != '')
-                      ClipRRect(
-                        borderRadius:
-                            BorderRadius.vertical(top: Radius.circular(16)),
-                        child: Image.network(
-                          data['imageUrl'],
-                          height: 180,
-                          width: double.infinity,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ListTile(
-                      leading: Icon(Icons.event),
-                      title: Text(data['content'] ?? 'Untitled'),
-                      subtitle:
-                          Text('Participants: ${data['participants'] ?? '-'}'),
-                      trailing: isOwner &&
-                              data['createdBy'] ==
-                                  FirebaseAuth.instance.currentUser?.uid
-                          ? PopupMenuButton<String>(
-                              onSelected: (value) {
-                                // TODO: Implement edit, delete, archive, view participants
-                              },
-                              itemBuilder: (context) => [
-                                PopupMenuItem(
-                                    value: 'edit',
-                                    child: Row(children: [
-                                      Icon(Icons.edit),
-                                      SizedBox(width: 8),
-                                      Text('Edit')
-                                    ])),
-                                PopupMenuItem(
-                                    value: 'delete',
-                                    child: Row(children: [
-                                      Icon(Icons.delete),
-                                      SizedBox(width: 8),
-                                      Text('Delete')
-                                    ])),
-                                PopupMenuItem(
-                                    value: 'archive',
-                                    child: Row(children: [
-                                      Icon(Icons.archive),
-                                      SizedBox(width: 8),
-                                      Text('Archive')
-                                    ])),
-                                PopupMenuItem(
-                                    value: 'participants',
-                                    child: Row(children: [
-                                      Icon(Icons.group),
-                                      SizedBox(width: 8),
-                                      Text('View participants')
-                                    ])),
-                              ],
-                            )
-                          : null,
-                    ),
-                  ],
-                ),
-              );
-            },
-          );
-        }
       },
     );
   }
@@ -1663,4 +1660,5 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
       ),
     );
   }
+}
 }

@@ -18,7 +18,7 @@ class ClubService {
             'Join our badminton community for weekly games and tournaments!',
         sport: 'Badminton',
         imageUrl: '',
-        memberIds: [currentUser.uid], // Add current user to the club
+        members: [currentUser.uid], // Add current user to the club
         createdBy: currentUser.uid,
         createdAt: DateTime.now(),
         lastMessage: 'Send your first message!',
@@ -30,7 +30,7 @@ class ClubService {
         description: 'Weekly basketball games every Saturday morning',
         sport: 'Basketball',
         imageUrl: '',
-        memberIds: [currentUser.uid],
+        members: [currentUser.uid],
         createdBy: currentUser.uid,
         createdAt: DateTime.now().subtract(Duration(days: 1)),
         lastMessage: 'See you all this Saturday!',
@@ -42,7 +42,7 @@ class ClubService {
         description: 'For all tennis enthusiasts of all skill levels',
         sport: 'Tennis',
         imageUrl: '',
-        memberIds: [currentUser.uid],
+        members: [currentUser.uid],
         createdBy: currentUser.uid,
         createdAt: DateTime.now().subtract(Duration(days: 3)),
         lastMessage: 'Anyone up for doubles tomorrow?',

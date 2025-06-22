@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:map_project/pages/create_event.dart';
+import 'package:map_project/pages/edit_event_page.dart';
 
 class ViewEventPage extends StatefulWidget {
   final String eventId;
@@ -117,9 +117,10 @@ class _ViewEventPageState extends State<ViewEventPage> {
     final result = await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CreateEventPage(
+        builder: (context) => EditEventPage(
+          eventId: widget.eventId,
+          eventData: eventData,
           clubId: widget.clubId,
-          eventData: {...eventData, 'id': widget.eventId},
         ),
       ),
     );
@@ -205,6 +206,228 @@ class _ViewEventPageState extends State<ViewEventPage> {
     }
   }
 
+  Future<void> _showParticipants() async {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        height: MediaQuery.of(context).size.height * 0.7,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.only(
+            topLeft: Radius.circular(24),
+            topRight: Radius.circular(24),
+          ),
+        ),
+        child: Column(
+          children: [
+            // Header
+            Container(
+              padding: EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                border: Border(
+                  bottom: BorderSide(color: Colors.grey[200]!),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.people, color: Colors.blue[600], size: 24),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Participants',
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black87,
+                          ),
+                        ),
+                        Text(
+                          '${participants.length} of $maxParticipants joined',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.grey[600],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: Icon(Icons.close),
+                  ),
+                ],
+              ),
+            ),
+            // Participants List
+            Expanded(
+              child: participants.isEmpty
+                  ? Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.people_outline,
+                            size: 64,
+                            color: Colors.grey[400],
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'No participants yet',
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: Colors.grey[600],
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Share this event to get people to join!',
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: Colors.grey[500],
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      itemCount: participants.length,
+                      itemBuilder: (context, index) {
+                        final participantId = participants[index];
+                        return FutureBuilder<DocumentSnapshot>(
+                          future: FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(participantId)
+                              .get(),
+                          builder: (context, snapshot) {
+                            if (snapshot.connectionState == ConnectionState.waiting) {
+                              return _buildParticipantTile(
+                                name: 'Loading...',
+                                isOrganizer: participantId == eventData['createdBy'],
+                                photoUrl: null,
+                              );
+                            }
+
+                            if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
+                              return _buildParticipantTile(
+                                name: 'Unknown User',
+                                isOrganizer: participantId == eventData['createdBy'],
+                                photoUrl: null,
+                              );
+                            }
+
+                            final userData = snapshot.data!.data() as Map<String, dynamic>;
+                            return _buildParticipantTile(
+                              name: userData['name'] ?? 'Unknown User',
+                              isOrganizer: participantId == eventData['createdBy'],
+                              photoUrl: userData['photoUrl'],
+                              email: userData['email'],
+                            );
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildParticipantTile({
+    required String name,
+    required bool isOrganizer,
+    String? photoUrl,
+    String? email,
+  }) {
+    return Container(
+      margin: EdgeInsets.only(bottom: 12),
+      padding: EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: isOrganizer ? Colors.blue[50] : Colors.grey[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isOrganizer ? Colors.blue[200]! : Colors.grey[200]!,
+        ),
+      ),
+      child: Row(
+        children: [
+          CircleAvatar(
+            radius: 24,
+            backgroundColor: Colors.grey[300],
+            backgroundImage: photoUrl != null && photoUrl.isNotEmpty
+                ? NetworkImage(photoUrl) as ImageProvider
+                : null,
+            child: photoUrl == null || photoUrl.isEmpty
+                ? Icon(
+                    Icons.person,
+                    size: 24,
+                    color: Colors.grey[600],
+                  )
+                : null,
+          ),
+          SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        name,
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.black87,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    if (isOrganizer)
+                      Container(
+                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.blue[100],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Text(
+                          'Organizer',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.blue[700],
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+                if (email != null && email.isNotEmpty)
+                  Padding(
+                    padding: EdgeInsets.only(top: 4),
+                    child: Text(
+                      email,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final date = eventData['date'] != null
@@ -258,17 +481,28 @@ class _ViewEventPageState extends State<ViewEventPage> {
                         offset: Offset(0, 2),
                       ),
                     ],
-                  ),
-                  child: PopupMenuButton<String>(
+                  ),                  child: PopupMenuButton<String>(
                     icon: Icon(Icons.more_vert, color: Colors.black),
                     onSelected: (value) {
                       if (value == 'edit') {
                         _editEvent();
                       } else if (value == 'delete') {
                         _deleteEvent();
+                      } else if (value == 'participants') {
+                        _showParticipants();
                       }
                     },
                     itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: 'participants',
+                        child: Row(
+                          children: [
+                            Icon(Icons.people, size: 20, color: Colors.green),
+                            SizedBox(width: 8),
+                            Text('View Participants'),
+                          ],
+                        ),
+                      ),
                       PopupMenuItem(
                         value: 'edit',
                         child: Row(
@@ -412,9 +646,7 @@ class _ViewEventPageState extends State<ViewEventPage> {
                         height: 1.2,
                       ),
                     ),
-                    SizedBox(height: 8),
-
-                    // Participants Status
+                    SizedBox(height: 8),                    // Participants Status
                     Container(
                       padding:
                           EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -429,30 +661,44 @@ class _ViewEventPageState extends State<ViewEventPage> {
                               : Colors.green[200]!,
                         ),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            participants.length >= maxParticipants
-                                ? Icons.people_alt
-                                : Icons.people_outline,
-                            size: 16,
-                            color: participants.length >= maxParticipants
-                                ? Colors.red[600]
-                                : Colors.green[600],
-                          ),
-                          SizedBox(width: 6),
-                          Text(
-                            '${participants.length}/$maxParticipants participants',
-                            style: TextStyle(
+                      child: InkWell(
+                        onTap: isEventCreator ? _showParticipants : null,
+                        borderRadius: BorderRadius.circular(20),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              participants.length >= maxParticipants
+                                  ? Icons.people_alt
+                                  : Icons.people_outline,
+                              size: 16,
                               color: participants.length >= maxParticipants
-                                  ? Colors.red[700]
-                                  : Colors.green[700],
-                              fontWeight: FontWeight.w600,
-                              fontSize: 14,
+                                  ? Colors.red[600]
+                                  : Colors.green[600],
                             ),
-                          ),
-                        ],
+                            SizedBox(width: 6),
+                            Text(
+                              '${participants.length}/$maxParticipants participants',
+                              style: TextStyle(
+                                color: participants.length >= maxParticipants
+                                    ? Colors.red[700]
+                                    : Colors.green[700],
+                                fontWeight: FontWeight.w600,
+                                fontSize: 14,
+                              ),
+                            ),
+                            if (isEventCreator) ...[
+                              SizedBox(width: 4),
+                              Icon(
+                                Icons.arrow_forward_ios,
+                                size: 12,
+                                color: participants.length >= maxParticipants
+                                    ? Colors.red[600]
+                                    : Colors.green[600],
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
                     ),
 
@@ -484,6 +730,10 @@ class _ViewEventPageState extends State<ViewEventPage> {
                           '${eventData['sport'] ?? 'N/A'} • ${eventData['level'] ?? 'N/A'}',
                       color: Colors.green[600]!,
                     ),
+                    SizedBox(height: 16),
+
+                    // Organizer Section
+                    _buildOrganizerCard(),
 
                     SizedBox(height: 32),
 
@@ -524,9 +774,110 @@ class _ViewEventPageState extends State<ViewEventPage> {
                               height: 1.6,
                             ),
                           ),
-                        ],
-                      ),
+                        ],                      ),
                     ),
+
+                    SizedBox(height: 32),
+
+                    // Participants Section (for organizers)
+                    if (isEventCreator)
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: Colors.blue[50],
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: Colors.blue[200]!),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.people,
+                                        color: Colors.blue[600], size: 20),
+                                    SizedBox(width: 8),
+                                    Text(
+                                      'Participants',
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.black87,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                TextButton.icon(
+                                  onPressed: _showParticipants,
+                                  icon: Icon(Icons.visibility, size: 16),
+                                  label: Text('View All'),
+                                  style: TextButton.styleFrom(
+                                    foregroundColor: Colors.blue[600],
+                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            SizedBox(height: 12),
+                            Row(
+                              children: [
+                                Container(
+                                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white,
+                                    borderRadius: BorderRadius.circular(20),
+                                    border: Border.all(color: Colors.blue[300]!),
+                                  ),
+                                  child: Text(
+                                    '${participants.length} / $maxParticipants joined',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.blue[700],
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                                SizedBox(width: 12),
+                                if (participants.length < maxParticipants)
+                                  Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.green[100],
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      '${maxParticipants - participants.length} spots left',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.green[700],
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  Container(
+                                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.orange[100],
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Text(
+                                      'Event Full',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                        color: Colors.orange[700],
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
 
                     SizedBox(height: 40),
 
@@ -663,6 +1014,116 @@ class _ViewEventPageState extends State<ViewEventPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildOrganizerCard() {
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance
+          .collection('users')
+          .doc(eventData['createdBy'])
+          .get(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _buildDetailCard(
+            icon: Icons.person,
+            title: 'Organizer',
+            content: 'Loading...',
+            color: Colors.purple[600]!,
+          );
+        }
+
+        if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
+          return _buildDetailCard(
+            icon: Icons.person,
+            title: 'Organizer',
+            content: 'Unknown organizer',
+            color: Colors.purple[600]!,
+          );
+        }
+
+        final organizerData = snapshot.data!.data() as Map<String, dynamic>;
+        final organizerName = organizerData['name'] ?? 'Unknown';
+        final organizerPhotoUrl = organizerData['photoUrl'] as String?;
+
+        return Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.1),
+                spreadRadius: 1,
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          padding: EdgeInsets.all(20),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.purple[600]!.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.person,
+                  color: Colors.purple[600]!,
+                  size: 24,
+                ),
+              ),
+              SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Organizer',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.grey[600],
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 16,
+                          backgroundColor: Colors.grey[300],
+                          backgroundImage: organizerPhotoUrl != null && organizerPhotoUrl.isNotEmpty
+                              ? NetworkImage(organizerPhotoUrl) as ImageProvider
+                              : null,
+                          child: organizerPhotoUrl == null || organizerPhotoUrl.isEmpty
+                              ? Icon(
+                                  Icons.person,
+                                  size: 16,
+                                  color: Colors.grey[600],
+                                )
+                              : null,
+                        ),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            organizerName,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.grey[800],
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],          ),
+        );
+      },
     );
   }
 }

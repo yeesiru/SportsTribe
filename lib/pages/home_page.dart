@@ -1,19 +1,17 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:map_project/pages/browse_clubs_page.dart';
 import 'package:map_project/pages/createClub_page.dart';
 import 'package:map_project/pages/profile_page.dart';
 import 'package:map_project/pages/chat_page.dart';
 import 'package:map_project/pages/leaderboard_page.dart';
 import 'package:map_project/pages/club_details_page.dart';
 import 'package:map_project/pages/create_event.dart';
-import 'package:map_project/pages/create_post.dart';
-import 'package:map_project/pages/browse_community.dart';
-import 'package:map_project/pages/view_event_page.dart';
+import 'package:map_project/pages/edit_event_page.dart';
 import 'package:map_project/pages/my_clubs_page.dart';
 import 'package:map_project/pages/post_details_page.dart';
-import 'package:map_project/widgets/user_avatar.dart';
-import 'package:map_project/services/user_service.dart';
+import 'package:map_project/pages/view_event_page.dart';
 
 class HomePage extends StatefulWidget {
   final int initialTabIndex;
@@ -37,10 +35,12 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     _currentTabIndex = widget.initialTabIndex;
   }
-
   // Get user data stream for real-time updates
-  Stream<Map<String, dynamic>?> getUserDataStream() {
-    return UserService.getCurrentUserDataStream();
+  Stream<DocumentSnapshot> getUserDataStream() {
+    return FirebaseFirestore.instance
+        .collection('users')
+        .doc(user.uid)
+        .snapshots();
   }
   
   Stream<QuerySnapshot> getUserRelatedClubs() {
@@ -651,23 +651,7 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ),
-      ],
-    );
-  }
-
-  Widget _buildPostCard(Map<String, dynamic> data) {
-    return Card(
-      margin: EdgeInsets.symmetric(horizontal: 15, vertical: 8),
-      child: ListTile(
-        leading: data['imageUrl'] != null && data['imageUrl'] != ''
-            ? CircleAvatar(backgroundImage: NetworkImage(data['imageUrl']))
-            : CircleAvatar(child: Icon(Icons.article)),
-        title: Text(data['content'] ?? ''),
-        subtitle: Text(data['createdAt'] != null
-            ? (data['createdAt'] as Timestamp).toDate().toString()
-            : ''),
-      ),
-    );
+      ],    );
   }
 
   String _formatDate(DateTime date) {
@@ -717,18 +701,23 @@ class _HomePageState extends State<HomePage> {
       );
     }
   }
-
   void _editEvent(Map<String, dynamic> eventData) {
     // Navigate to edit event page
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => CreateEventPage(
-          clubId: eventData['type'] == 'club' ? eventData['clubId'] : null,
+        builder: (context) => EditEventPage(
+          eventId: eventData['id'],
           eventData: eventData,
+          clubId: eventData['type'] == 'club' ? eventData['clubId'] : null,
         ),
       ),
-    );
+    ).then((result) {
+      if (result == true) {
+        // Refresh the page when returning from edit
+        setState(() {});
+      }
+    });
   }
 
   void _deleteEvent(Map<String, dynamic> eventData) {
@@ -786,14 +775,7 @@ class _HomePageState extends State<HomePage> {
           eventData: eventData,
           clubId: eventData['type'] == 'club' ? eventData['clubId'] : null,
         ),
-      ),
-    );
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    _currentTabIndex = widget.initialTabIndex;
+      ),    );
   }
 
   void _onItemTapped(int index) {
@@ -836,28 +818,20 @@ class _HomePageState extends State<HomePage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
+  Widget build(BuildContext context) {    return Scaffold(
       backgroundColor: Colors.grey[100],
-      floatingActionButton: FloatingActionButton(
+      floatingActionButton: _selectedIndex == 0 ? FloatingActionButton(
         onPressed: () {
-          if (_selectedIndex == 0) {
-            // Navigate to Create Event page
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => CreateEventPage()),
-            );
-          } else {
-            // Navigate to Create Post page
-            Navigator.push(
-              context,
-              MaterialPageRoute(builder: (context) => CreatePostPage()),
-            );
-          }
+          // Only show on Events tab - Navigate to Create Event page
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (context) => CreateEventPage()),
+          );
         },
         backgroundColor: Colors.black,
         child: Icon(Icons.add, color: Colors.white),
-      ),
+        tooltip: 'Create Event',
+      ) : null, // Hide floating button on Posts tab
       body: Column(
         children: [
           Container(
@@ -870,17 +844,16 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             child: Column(
-              children: [
-                Row(
+              children: [                Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                  Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    StreamBuilder<Map<String, dynamic>?>(
+                    StreamBuilder<DocumentSnapshot>(
                       stream: getUserDataStream(),
                       builder: (context, snapshot) {
-                        final userData = snapshot.data;
+                        Map<String, dynamic>? userData;
+                        if (snapshot.hasData && snapshot.data!.exists) {
+                          userData = snapshot.data!.data() as Map<String, dynamic>?;
+                        }
 
                         return Row(
                           children: [
@@ -896,7 +869,6 @@ class _HomePageState extends State<HomePage> {
                           ],
                         );
                       },
-                    ),
                     ),
                     Row(
                       children: [
@@ -1129,9 +1101,7 @@ class _HomePageState extends State<HomePage> {
                             MaterialPageRoute(
                               builder: (context) => MyClubsPage(),
                             ),
-                          );
-                        },
-                        child: Icon(Icons.chevron_right,
+                          );                        },                        child: Icon(Icons.chevron_right,
                             size: 30, color: Colors.grey[600]),
                       ),
                     ],
@@ -1242,13 +1212,16 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-
   // Helper method to build user avatar
   Widget _buildUserAvatar(Map<String, dynamic>? userData,
       {double radius = 20}) {
-    return UserAvatar(
-      userData: userData,
+    return CircleAvatar(
       radius: radius,
+      backgroundImage: userData != null && 
+          userData['photoUrl'] != null && 
+          userData['photoUrl'].toString().trim().isNotEmpty
+          ? NetworkImage(userData['photoUrl'])
+          : const AssetImage('assets/images/profile.jpg') as ImageProvider,
     );
   }
 
@@ -1623,81 +1596,7 @@ class _HomePageState extends State<HomePage> {
           );
         }).toList(),
       ),
-    );
-  }
-
-  Widget _buildEventInfo(Map<String, dynamic> data) {
-    final eventDate = data['eventDate'] as Timestamp?;
-    final location = data['location'] as String?;
-    final maxParticipants = data['maxParticipants'] as int?;
-    final participants = data['participants'] as List?;
-
-    if (eventDate == null && location == null) return SizedBox.shrink();
-
-    return Container(
-      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Color(0xFFD7F520).withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Color(0xFFD7F520).withOpacity(0.3)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (eventDate != null)
-            Row(
-              children: [
-                Icon(Icons.schedule, size: 16, color: Colors.black87),
-                SizedBox(width: 8),
-                Text(
-                  _formatEventDate(eventDate),
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-              ],
-            ),
-          if (eventDate != null && location != null) SizedBox(height: 8),
-          if (location != null)
-            Row(
-              children: [
-                Icon(Icons.location_on, size: 16, color: Colors.black87),
-                SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    location,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          if (maxParticipants != null)
-            Padding(
-              padding: EdgeInsets.only(top: 8),
-              child: Row(
-                children: [
-                  Icon(Icons.group, size: 16, color: Colors.black87),
-                  SizedBox(width: 8),
-                  Text(
-                    '${participants?.length ?? 0}/$maxParticipants participants',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.black87,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
-    );
-  }
+    );  }
 
   Widget _buildActionButtons(int likesCount, int commentsCount, bool isEvent) {
     return Padding(
@@ -1813,23 +1712,6 @@ class _HomePageState extends State<HomePage> {
       return '${date.day}/${date.month}/${date.year}';
     }
   }
-
-  String _formatEventDate(Timestamp timestamp) {
-    final date = timestamp.toDate();
-    final now = DateTime.now();
-    final isToday =
-        date.day == now.day && date.month == now.month && date.year == now.year;
-    final isTomorrow = date.difference(now).inDays == 1;
-
-    if (isToday) {
-      return 'Today at ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-    } else if (isTomorrow) {
-      return 'Tomorrow at ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-    } else {
-      return '${date.day}/${date.month}/${date.year} at ${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';
-    }
-  }
-
   Color _getCategoryColor(String category) {
     switch (category) {
       case 'Announcement':

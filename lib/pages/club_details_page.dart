@@ -7,6 +7,7 @@ import 'package:map_project/pages/create_event.dart';
 import 'package:map_project/pages/create_post.dart';
 import 'package:map_project/pages/post_details_page.dart';
 import 'package:map_project/pages/club_members_page.dart';
+import 'package:map_project/pages/view_event_page.dart';
 import 'package:map_project/widgets/user_avatar.dart';
 
 class ClubDetailsPage extends StatefulWidget {
@@ -28,12 +29,23 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
   int _selectedTabIndex = 0;
 
   late Future<String> _creatorNameFuture;
+  bool get isUserMember =>
+      (widget.clubData['members'] as List?)?.contains(user.uid) ?? false;
+  bool get isPrivateClub => widget.clubData['isPrivate'] ?? false;
+
+  Future<bool> get hasPendingRequest async {
+    final doc = await FirebaseFirestore.instance
+        .collection('joinRequests')
+        .where('clubId', isEqualTo: widget.clubId)
+        .where('userId', isEqualTo: user.uid)
+        .where('status', isEqualTo: 'pending')
+        .get();
+    return doc.docs.isNotEmpty;
+  }
 
   Future<String> _getCreatorName() async {
     try {
       final creatorId = widget.clubData['creatorId'];
-
-      // First try to get from users collection
       final userDoc = await FirebaseFirestore.instance
           .collection('users')
           .doc(creatorId)
@@ -42,29 +54,32 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
       if (userDoc.exists) {
         return userDoc.data()?['name'] ?? 'Unknown';
       } else {
-        // If user doesn't exist in users collection, try to get from Firebase Auth
-        // For now, just return a placeholder since we can't directly query Firebase Auth
-        return 'Club Creator';
+        return 'Unknown';
       }
     } catch (e) {
-      return 'Club Creator';
+      return 'Unknown';
     }
   }
-
   @override
   void initState() {
     super.initState();
     _creatorNameFuture = _getCreatorName();
+    
+    // Debug club data
+    print('=== Club Data Debug ===');
+    print('Club data keys: ${widget.clubData.keys.toList()}');
+    print('Club isPrivate: ${widget.clubData['isPrivate']}');
+    print('Club members: ${widget.clubData['members']}');
+    print('Club name: ${widget.clubData['name']}');
+    print('Current user: ${user.uid}');
+    print('isPrivateClub getter: $isPrivateClub');
+    print('isUserMember getter: $isUserMember');
+    print('======================');
   }
 
   Future<void> _leaveClub() async {
     try {
-      await FirebaseFirestore.instance
-          .collection('club')
-          .doc(widget.clubId)
-          .update({
-        'members': FieldValue.arrayRemove([user.uid])
-      });
+      await _removeUserFromClub(widget.clubId, user.uid);
       if (mounted) {
         Navigator.of(context).pop(); // Close the dialog
         Navigator.of(context).pop(); // Pop the details page
@@ -77,7 +92,6 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
       }
     }
   }
-
   // Removed unused _joinClub method as joining is now handled directly in the button handler
 
   Future<void> _requestToJoin() async {
@@ -197,7 +211,6 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
     );
   }
 
-
   void _reportClub() {
     showDialog(
       context: context,
@@ -223,17 +236,16 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
       ),
     );
   }
-
   @override
   Widget build(BuildContext context) {
-    final bool isOwner = widget.clubData['creatorId'] == user.uid;
-    final bool isMember =
-        (widget.clubData['members'] as List).contains(user.uid);
+    final bool isCreator = widget.clubData['creatorId'] == user.uid;
+    final bool isMember = isUserMember; // Use the consistent getter
     final DateTime createdAt =
         (widget.clubData['createdAt'] as Timestamp).toDate();
     final String formattedDate = DateFormat('MMMM d, y').format(createdAt);
-    final tabs =
-        isOwner ? ['Events', 'Posts', 'Requests'] : ['Events', 'Posts'];
+    final List<String> tabs = isCreator && isPrivateClub
+        ? ['Events', 'Posts', 'Requests']
+        : ['Events', 'Posts'];
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -368,48 +380,49 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                             }
                           }
                         },
-                    itemBuilder: (context) => [
-                      PopupMenuItem(
-                        value: 'edit',
-                        child: Text('Edit Club'),
+                        itemBuilder: (context) => [
+                          PopupMenuItem(
+                            value: 'edit',
+                            child: Text('Edit Club'),
+                          ),
+                          PopupMenuItem(
+                            value: 'delete',
+                            child: Text('Delete Club',
+                                style: TextStyle(color: Colors.red)),
+                          ),
+                        ],
                       ),
-                      PopupMenuItem(
-                        value: 'delete',
-                        child: Text('Delete Club',
-                            style: TextStyle(color: Colors.red)),
-                      ),
-                    ],
-                  ),
-                if (!isCreator)
+                    if (!isCreator)
                       IconButton(
                         icon: Icon(Icons.report_problem_outlined,
                             color: Colors.black),
                         onPressed: _reportClub,
                       ),
-              ],
-            ),
-
-            // Club Info
-            SliverToBoxAdapter(
-              child: Container(
-                margin: EdgeInsets.only(top: 0, left: 0, right: 0, bottom: 0),
-                padding: EdgeInsets.all(20),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius:
-                      BorderRadius.vertical(bottom: Radius.circular(30)),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.white.withOpacity(0.15),
-                      blurRadius: 10,
-                      offset: Offset(0, 4),
-                    ),
                   ],
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Club Title with privacy indicator
+
+                // Club Info
+                SliverToBoxAdapter(
+                  child: Container(
+                    margin:
+                        EdgeInsets.only(top: 0, left: 0, right: 0, bottom: 0),
+                    padding: EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius:
+                          BorderRadius.vertical(bottom: Radius.circular(30)),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.white.withOpacity(0.15),
+                          blurRadius: 10,
+                          offset: Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Club Title with privacy indicator
                         Row(
                           children: [
                             Expanded(
@@ -459,20 +472,16 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                             ),
                           ],
                         ),
-                    SizedBox(height: 20),
+                        SizedBox(height: 20),
 
-                    // Club Stats
-                    Container(
-                      padding: EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Color(0xFFD7F520).withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Column(
-                        children: [
-                          // Club Details Row
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                        // Club Stats
+                        Container(
+                          padding: EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Color(0xFFD7F520).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          child: Column(
                             children: [
                               // Club Details Row
                               Row(
@@ -504,69 +513,70 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                                   ),
                                 ],
                               ),
-                          Divider(height: 30, color: Color(0xFFD7F520)),
-                          // Creator Info
-                          FutureBuilder<String>(
-                            future:
-                                _creatorNameFuture, // <-- Ensure this is set!
-                            builder: (context, snapshot) {
-                              if (snapshot.connectionState ==
-                                  ConnectionState.waiting) {
-                                return Row(
-                                  children: [
-                                    Icon(Icons.person_outline,
-                                        color: Colors.grey[700]),
-                                    SizedBox(width: 8),
-                                    Text('Loading...',
-                                        style:
-                                            TextStyle(color: Colors.grey[700])),
-                                  ],
-                                );
-                              } else if (snapshot.hasError) {
-                                return Row(
-                                  children: [
-                                    Icon(Icons.person_outline,
-                                        color: Colors.grey[700]),
-                                    SizedBox(width: 8),
-                                    Text('Error fetching creator',
-                                        style:
-                                            TextStyle(color: Colors.grey[700])),
-                                  ],
-                                );
-                              } else {
-                                return Row(
-                                  children: [
-                                    Icon(Icons.person_outline,
-                                        color: Colors.grey[700]),
-                                    SizedBox(width: 8),
-                                    Text(
-                                      'Created by: ${snapshot.data}',
-                                      style: TextStyle(color: Colors.grey[700]),
-                                    ),
-                                  ],
-                                );
-                              }
-                            },
-                          ),
+                              Divider(height: 30, color: Color(0xFFD7F520)),
+                              // Creator Info
+                              FutureBuilder<String>(
+                                future:
+                                    _creatorNameFuture, // <-- Ensure this is set!
+                                builder: (context, snapshot) {
+                                  if (snapshot.connectionState ==
+                                      ConnectionState.waiting) {
+                                    return Row(
+                                      children: [
+                                        Icon(Icons.person_outline,
+                                            color: Colors.grey[700]),
+                                        SizedBox(width: 8),
+                                        Text('Loading...',
+                                            style: TextStyle(
+                                                color: Colors.grey[700])),
+                                      ],
+                                    );
+                                  } else if (snapshot.hasError) {
+                                    return Row(
+                                      children: [
+                                        Icon(Icons.person_outline,
+                                            color: Colors.grey[700]),
+                                        SizedBox(width: 8),
+                                        Text('Error fetching creator',
+                                            style: TextStyle(
+                                                color: Colors.grey[700])),
+                                      ],
+                                    );
+                                  } else {
+                                    return Row(
+                                      children: [
+                                        Icon(Icons.person_outline,
+                                            color: Colors.grey[700]),
+                                        SizedBox(width: 8),
+                                        Text(
+                                          'Created by: ${snapshot.data}',
+                                          style: TextStyle(
+                                              color: Colors.grey[700]),
+                                        ),
+                                      ],
+                                    );
+                                  }
+                                },
+                              ),
 
-                          SizedBox(height: 8),
-                          Row(
-                            children: [
-                              Icon(Icons.calendar_today,
-                                  color: Colors.grey[700]),
-                              SizedBox(width: 8),
-                              Text(
-                                'Created on: $formattedDate',
-                                style: TextStyle(color: Colors.grey[700]),
+                              SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  Icon(Icons.calendar_today,
+                                      color: Colors.grey[700]),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Created on: $formattedDate',
+                                    style: TextStyle(color: Colors.grey[700]),
+                                  ),
+                                ],
                               ),
                             ],
                           ),
-                        ],
-                      ),
-                    ),
-                    SizedBox(height: 20),
+                        ),
+                        SizedBox(height: 20),
 
-                    // Join/Leave/Request Button (only one visible at a time)
+                        // Join/Leave/Request Button (only one visible at a time)
                         if (!isCreator) ...[
                           SizedBox(
                             width: double.infinity,
@@ -698,31 +708,16 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
                       ],
                     ),
                   ),
-                ),
-
-                // Tab Content
+                ),                // Tab Content
                 SliverToBoxAdapter(
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 32.0),
                     child: Builder(
                       builder: (context) {
-                        // Check if user can view content (public club or member of private club)
-                        bool canViewContent = !isPrivateClub || isUserMember;
-
                         if (_selectedTabIndex == 0) {
-                          if (canViewContent) {
-                            return _buildEventsTabWithImages(
-                                widget.clubId, isCreator);
-                          } else {
-                            return _buildPrivateContentMessage('events');
-                          }
+                          return _buildEventsTabWithImages(widget.clubId, isCreator);
                         } else if (_selectedTabIndex == 1) {
-                          if (canViewContent) {
-                            return _buildPostsTabWithImages(
-                                widget.clubId, isCreator);
-                          } else {
-                            return _buildPrivateContentMessage('posts');
-                          }
+                          return _buildPostsTabWithImages(widget.clubId, isCreator);
                         } else if (_selectedTabIndex == 2 && isCreator) {
                           return _buildRequestsTab(widget.clubId);
                         } else {
@@ -799,115 +794,24 @@ class _ClubDetailsPageState extends State<ClubDetailsPage> {
       ),
     );
   }
-}
-                
-Widget _buildEventsTabWithImages(String clubId, bool isOwner) {
-  return StreamBuilder<QuerySnapshot>(
-    stream: FirebaseFirestore.instance
-        .collection('club')
-        .doc(clubId)
-        .collection('events')
-        .orderBy('createdAt', descending: true)
-        .snapshots(),
-    builder: (context, snapshot) {
-      if (snapshot.connectionState == ConnectionState.waiting) {
-        return Center(child: CircularProgressIndicator());
-      } else if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-        return Center(child: Text('No events yet'));
-      } else {
-        return ListView.builder(
-          shrinkWrap: true,
-          physics: NeverScrollableScrollPhysics(),
-          itemCount: snapshot.data!.docs.length,
-          itemBuilder: (context, index) {
-            var event = snapshot.data!.docs[index];
-            final data = event.data() as Map<String, dynamic>;
-            final participants = data['participants'] as List? ?? [];
-            final maxParticipants = data['maxParticipants'] ?? 0;
-            return Card(
-              margin: EdgeInsets.only(bottom: 16, left: 16, right: 16),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (data['imageUrl'] != null && data['imageUrl'] != '')
-                    ClipRRect(
-                      borderRadius:
-                          BorderRadius.vertical(top: Radius.circular(16)),
-                      child: Image.network(
-                        data['imageUrl'],
-                        height: 180,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                  ListTile(
-                    leading: Icon(Icons.event),
-                    title: Text(data['title'] ?? 'Untitled Event'),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                            'Participants: ${participants.length}/$maxParticipants'),
-                        if (data['date'] != null)
-                          Text(
-                              'Date: ${(data['date'] as Timestamp).toDate().toString().split(' ')[0]}'),
-                        if (data['location'] != null)
-                          Text('Location: ${data['location']}'),
-                      ],
-                    ),
-                    trailing: isOwner &&
-                            data['createdBy'] ==
-                                FirebaseAuth.instance.currentUser?.uid
-                        ? PopupMenuButton<String>(
-                            onSelected: (value) {
-                              // TODO: Implement edit, delete, archive, view participants
-                            },
-                            itemBuilder: (context) => [
-                              PopupMenuItem(
-                                  value: 'edit',
-                                  child: Row(children: [
-                                    Icon(Icons.edit),
-                                    SizedBox(width: 8),
-                                    Text('Edit')
-                                  ])),
-                              PopupMenuItem(
-                                  value: 'delete',
-                                  child: Row(children: [
-                                    Icon(Icons.delete),
-                                    SizedBox(width: 8),
-                                    Text('Delete')
-                                  ])),
-                              PopupMenuItem(
-                                  value: 'archive',
-                                  child: Row(children: [
-                                    Icon(Icons.archive),
-                                    SizedBox(width: 8),
-                                    Text('Archive')
-                                  ])),
-                              PopupMenuItem(
-                                  value: 'participants',
-                                  child: Row(children: [
-                                    Icon(Icons.group),
-                                    SizedBox(width: 8),
-                                    Text('View participants')
-                                  ])),
-                            ],
-                          )
-                        : null,
-                  ),
-                ],
-              ),
-            );
-          },
-        );
-      }
-    },
-  );
-}
 
-// Helper method to ensure unique requests using transactions
+  /*
+   * IMPORTANT: To completely prevent duplicate requests at the database level,
+   * create a composite index in Firestore console:
+   * 
+   * Collection: joinRequests
+   * Fields: clubId (Ascending), userId (Ascending), status (Ascending)
+   * 
+   * You can also create a unique constraint by setting up Firestore security rules:
+   * 
+   * match /joinRequests/{requestId} {
+   *   allow create: if !exists(/databases/$(database)/documents/joinRequests/$(request.auth.uid + '_' + resource.data.clubId))
+   *     && request.auth != null 
+   *     && request.auth.uid == resource.data.userId;
+   * }
+   */
+
+  // Helper method to ensure unique requests using transactions
   Future<bool> _createUniqueRequest() async {
     try {
       final firestore = FirebaseFirestore.instance;
@@ -942,10 +846,28 @@ Widget _buildEventsTabWithImages(String clubId, bool isOwner) {
       print('Error in transaction: $e');
       return false;
     }
-  }
-
-  Widget _buildPostsTabWithImages(String clubId, bool isOwner) {
+  }  Widget _buildPostsTabWithImages(String clubId, bool isOwner) {
     print('Building posts for club: $clubId');
+    
+    // Check if user can view content (public club or member of private club)
+    bool canViewContent = !isPrivateClub || isUserMember;
+    
+    print('=== Posts Tab Debug ===');
+    print('Club ID: $clubId');
+    print('isPrivateClub: $isPrivateClub');
+    print('isUserMember: $isUserMember');
+    print('canViewContent: $canViewContent');
+    print('User ID: ${user.uid}');
+    print('Club members: ${widget.clubData['members']}');
+    print('======================');
+    
+    // If user can't view content, return private content message instead of querying Firestore
+    if (!canViewContent) {
+      print('Returning private content message for posts');
+      return _buildPrivateContentMessage('posts');
+    }
+    
+    print('Proceeding with StreamBuilder for posts');
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('club')
@@ -970,6 +892,12 @@ Widget _buildEventsTabWithImages(String clubId, bool isOwner) {
 
         if (snapshot.hasError) {
           print('Error loading posts: ${snapshot.error}');
+          
+          // Handle permission denied error specifically
+          if (snapshot.error.toString().contains('PERMISSION_DENIED')) {
+            return _buildPrivateContentMessage('posts');
+          }
+          
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -1011,6 +939,97 @@ Widget _buildEventsTabWithImages(String clubId, bool isOwner) {
             print('  Title: ${data['title']}');
             print('  Content: ${data['content']}');
             return _buildPostCard(data, index);
+          }).toList(),
+        );
+      },
+    );
+  }  Widget _buildEventsTabWithImages(String clubId, bool isOwner) {
+    print('=== Events Tab Debug ===');
+    print('Club ID: $clubId');
+    print('Raw isPrivate value: ${widget.clubData['isPrivate']}');
+    print('Raw members value: ${widget.clubData['members']}');
+    print('isPrivateClub: $isPrivateClub');
+    print('isUserMember: $isUserMember');
+    print('User ID: ${user.uid}');
+    
+    // Check if user can view content (public club or member of private club)
+    bool canViewContent;
+    if (!isPrivateClub) {
+      canViewContent = true; // Public club - everyone can view
+      print('Public club detected - allowing access');
+    } else if (isUserMember) {
+      canViewContent = true; // Private club but user is a member
+      print('Private club but user is member - allowing access');
+    } else {
+      canViewContent = false; // Private club and user is not a member
+      print('Private club and user is not member - denying access');
+    }
+    
+    print('Final canViewContent: $canViewContent');
+    print('======================');
+    
+    // If user can't view content, return private content message instead of querying Firestore
+    if (!canViewContent) {
+      print('Returning private content message for events');
+      return _buildPrivateContentMessage('events');
+    }
+    
+    print('Proceeding with StreamBuilder for events');
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('club')
+          .doc(clubId)
+          .collection('events')
+          .orderBy('createdAt', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          // Handle permission denied error specifically
+          if (snapshot.error.toString().contains('PERMISSION_DENIED')) {
+            return _buildPrivateContentMessage('events');
+          }
+          
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error, color: Colors.red),
+                Text('Error loading events: ${snapshot.error}'),
+              ],
+            ),
+          );
+        }
+
+        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.event_outlined, size: 48, color: Colors.grey),
+                SizedBox(height: 16),
+                Text('No events yet'),
+                SizedBox(height: 8),
+                Text('Be the first to create an event!'),
+              ],
+            ),
+          );
+        }
+
+        return Column(
+          children: snapshot.data!.docs.asMap().entries.map((entry) {
+            final index = entry.key;
+            final event = entry.value;
+            final data = event.data() as Map<String, dynamic>;
+
+            // Add the document ID to the data for navigation
+            data['id'] = event.id;
+            data['clubId'] = clubId;
+
+            return _buildEventCard(data, index);
           }).toList(),
         );
       },
@@ -1660,5 +1679,391 @@ Widget _buildEventsTabWithImages(String clubId, bool isOwner) {
       ),
     );
   }
-}
+  Widget _buildEventCard(Map<String, dynamic> data, int index) {
+    final createdAt = data['createdAt'] as Timestamp?;
+    final imageUrl = data['imageUrl'] as String?;
+    final content = data['content'] as String? ?? '';
+    final title = data['title'] as String?;
+    final sport = data['sport'] as String?;
+    final level = data['level'] as String?;
+    final location = data['location'] as String? ?? 'Location TBD';
+    final clubId = data['clubId'] as String?;
+    
+    // Handle participants data (could be int or List)
+    final dynamic participantsData = data['participants'];
+    final List<dynamic> participants = participantsData is List
+        ? participantsData
+        : participantsData is int
+            ? [data['createdBy']] // If it's an int, convert to list with creator
+            : []; // Default to empty list
+    final maxParticipants = data['maxParticipants'] ?? 0;
+
+    // Parse date and time
+    String dateTimeText = 'Date TBD';
+    if (data['date'] != null) {
+      final date = (data['date'] as Timestamp).toDate();
+      final time = data['time'] ?? '';
+      dateTimeText = '${date.day}/${date.month}/${date.year}';
+      if (time.isNotEmpty) {
+        dateTimeText += ' at $time';
+      }
+    }    return AnimatedContainer(
+      duration: Duration(milliseconds: 300 + (index * 100)),
+      curve: Curves.easeOutBack,
+      margin: EdgeInsets.only(left: 16, right: 16, bottom: 16),
+      child: GestureDetector(
+        onTap: isUserMember ? () {
+          // Navigate to event details page (only for members)
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => ViewEventPage(
+                eventId: data['id'],
+                eventData: data,
+                clubId: clubId,
+              ),
+            ),
+          );
+        } : null, // No action for non-members
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.1),
+                spreadRadius: 1,
+                blurRadius: 10,
+                offset: Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Header with club info and timestamp
+              _buildEventCardHeader(data, createdAt, clubId),
+
+              // Event type badge
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: Container(
+                  padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Color(0xFFD7F520).withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.event, size: 12, color: Colors.black87),
+                      SizedBox(width: 4),
+                      Text(
+                        'Club Event',
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: Colors.black87,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Title
+              if (title != null && title.isNotEmpty)
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Text(
+                    title,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
+                  ),
+                ),
+
+              // Content/Description
+              if (content.isNotEmpty)
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  child: Text(
+                    content,
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Colors.black87,
+                      height: 1.4,
+                    ),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+
+              // Image
+              if (imageUrl != null && imageUrl.isNotEmpty)
+                _buildEventCardImage(imageUrl),
+
+              // Event details info
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                child: Container(
+                  padding: EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Color(0xFFF8F9FA),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.grey[200]!),
+                  ),
+                  child: Column(
+                    children: [
+                      _buildEventInfoRow(
+                        icon: Icons.calendar_today,
+                        text: dateTimeText,
+                        color: Colors.blue[600]!,
+                      ),
+                      SizedBox(height: 8),
+                      _buildEventInfoRow(
+                        icon: Icons.location_on,
+                        text: location,
+                        color: Colors.red[600]!,
+                      ),
+                      if (sport != null) ...[
+                        SizedBox(height: 8),
+                        _buildEventInfoRow(
+                          icon: Icons.sports,
+                          text: level != null ? '$sport • $level' : sport,
+                          color: Colors.green[600]!,
+                        ),
+                      ],
+                      SizedBox(height: 8),
+                      _buildEventInfoRow(
+                        icon: Icons.group,
+                        text: '${participants.length}/$maxParticipants participants',
+                        color: participants.length >= maxParticipants
+                            ? Colors.red[600]!
+                            : Colors.orange[600]!,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Action buttons
+              _buildEventActionButtons(data),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEventCardHeader(Map<String, dynamic> data, Timestamp? createdAt, String? clubId) {
+    return Padding(
+      padding: EdgeInsets.all(16),
+      child: Row(
+        children: [
+          // Club avatar
+          CircleAvatar(
+            radius: 20,
+            backgroundColor: Colors.green[200],
+            backgroundImage: widget.clubData['imageUrl'] != null
+                ? NetworkImage(widget.clubData['imageUrl'])
+                : null,
+            child: widget.clubData['imageUrl'] == null
+                ? Icon(Icons.sports_tennis, color: Colors.green[800], size: 20)
+                : null,
+          ),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  widget.clubData['name'] ?? 'Unknown Club',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 16,
+                    color: Colors.black87,
+                  ),
+                ),
+                if (createdAt != null)
+                  Text(
+                    _formatPostDate(createdAt),
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 12,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          Icon(
+            Icons.more_vert,
+            color: Colors.grey[600],
+            size: 20,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEventCardImage(String imageUrl) {
+    return Container(
+      margin: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      height: 200,
+      width: double.infinity,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        image: DecorationImage(
+          image: NetworkImage(imageUrl),
+          fit: BoxFit.cover,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildEventInfoRow({
+    required IconData icon,
+    required String text,
+    required Color color,
+  }) {
+    return Row(
+      children: [
+        Container(
+          padding: EdgeInsets.all(4),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: Icon(icon, size: 16, color: color),
+        ),
+        SizedBox(width: 12),
+        Expanded(
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey[700],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ],
+    );
+  }  Widget _buildEventActionButtons(Map<String, dynamic> data) {
+    // Only show buttons for club members
+    if (!isUserMember) {
+      return SizedBox.shrink(); // No buttons for non-members
+    }
+
+    final dynamic participantsData = data['participants'];
+    final List<dynamic> participants = participantsData is List
+        ? participantsData
+        : participantsData is int
+            ? [data['createdBy']]
+            : [];
+    final maxParticipants = data['maxParticipants'] ?? 0;
+    final isUserJoined = participants.contains(user.uid);
+
+    return Padding(
+      padding: EdgeInsets.all(16),
+      child: Row(
+        children: [
+          // View Details button - only visible for members
+          Expanded(
+            flex: 2,
+            child: ElevatedButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ViewEventPage(
+                      eventId: data['id'],
+                      eventData: data,
+                      clubId: data['clubId'],
+                    ),
+                  ),
+                );
+              },
+              icon: Icon(Icons.visibility, size: 18),
+              label: Text('View Details'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.grey[100],
+                foregroundColor: Colors.grey[700],
+                padding: EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                elevation: 0,
+              ),
+            ),
+          ),
+          
+          SizedBox(width: 12),
+          
+          // Join button - for club members
+          Expanded(
+            flex: 2,
+            child: ElevatedButton.icon(
+              onPressed: isUserJoined || participants.length >= maxParticipants
+                  ? null
+                  : () => _joinEvent(data),
+              icon: Icon(
+                isUserJoined
+                    ? Icons.check_circle
+                    : participants.length >= maxParticipants
+                        ? Icons.block
+                        : Icons.add_circle,
+                size: 18,
+              ),
+              label: Text(
+                isUserJoined
+                    ? 'Joined'
+                    : participants.length >= maxParticipants
+                        ? 'Full'
+                        : 'Join',
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: isUserJoined
+                    ? Colors.green[400]
+                    : participants.length >= maxParticipants
+                        ? Colors.grey[400]
+                        : Color(0xFFD7F520),
+                foregroundColor: isUserJoined || participants.length >= maxParticipants
+                    ? Colors.white
+                    : Colors.black,
+                padding: EdgeInsets.symmetric(vertical: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(25),
+                ),
+                elevation: isUserJoined || participants.length >= maxParticipants ? 0 : 2,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _joinEvent(Map<String, dynamic> eventData) async {
+    try {
+      await FirebaseFirestore.instance
+          .collection('club')
+          .doc(eventData['clubId'])
+          .collection('events')
+          .doc(eventData['id'])
+          .update({
+        'participants': FieldValue.arrayUnion([user.uid])
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Joined event successfully!')),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error joining event: $e')),
+      );
+    }
+  }
 }

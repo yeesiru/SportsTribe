@@ -7,8 +7,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class CreateEventPage extends StatefulWidget {
   final String? clubId; // Pass the clubId when navigating to this page
-  final Map<String, dynamic>? eventData; // For editing existing event
-  CreateEventPage({this.clubId, this.eventData});
+
+  const CreateEventPage({super.key, this.clubId});
+
   @override
   State<CreateEventPage> createState() => _CreateEventPageState();
 }
@@ -46,35 +47,11 @@ class _CreateEventPageState extends State<CreateEventPage> {
     "Advanced",
     "All levels"
   ];
-
   @override
   void initState() {
     super.initState();
-    // If editing, populate fields
-    if (widget.eventData != null) {
-      _titleController.text = widget.eventData!['title'] ?? '';
-      _descriptionController.text = widget.eventData!['description'] ?? '';
-      _locationController.text = widget.eventData!['location'] ?? '';
-      _selectedSport = widget.eventData!['sport'];
-      _selectedLevel = widget.eventData!['level'];
-      _maxParticipants = widget.eventData!['maxParticipants'] ?? 1;
-      _isPublic = widget.eventData!['isPublic'] ?? true;
-
-      // Parse date and time if available
-      if (widget.eventData!['date'] != null) {
-        _selectedDate = (widget.eventData!['date'] as Timestamp).toDate();
-      }
-      if (widget.eventData!['time'] != null) {
-        final timeString = widget.eventData!['time'] as String;
-        final parts = timeString.split(':');
-        _selectedTime = TimeOfDay(
-          hour: int.parse(parts[0]),
-          minute: int.parse(parts[1]),
-        );
-      }
-    }
+    // No need to populate fields for create event
   }
-
   Future<void> _pickImage() async {
     if (_isPickingImage) return;
     setState(() {
@@ -82,8 +59,12 @@ class _CreateEventPageState extends State<CreateEventPage> {
     });
     try {
       final picker = ImagePicker();
-      final picked =
-          await picker.pickImage(source: ImageSource.gallery, imageQuality: 80);
+      final picked = await picker.pickImage(
+        source: ImageSource.gallery, 
+        imageQuality: 70, // Reduced for faster upload
+        maxWidth: 1200,   // Limit width for faster upload
+        maxHeight: 1200,  // Limit height for faster upload
+      );
       if (picked != null) {
         setState(() {
           _eventImage = File(picked.path);
@@ -95,13 +76,22 @@ class _CreateEventPageState extends State<CreateEventPage> {
       });
     }
   }
-
   Future<String?> _uploadImage(File imageFile) async {
+    // Upload with better metadata and compression
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}_new_event.jpg';
     final ref = FirebaseStorage.instance
         .ref()
         .child('event_images')
-        .child('${DateTime.now().millisecondsSinceEpoch}.jpg');
-    await ref.putFile(imageFile);
+        .child(fileName);
+    
+    final metadata = SettableMetadata(
+      contentType: 'image/jpeg',
+      customMetadata: {
+        'createdAt': DateTime.now().toIso8601String(),
+      },
+    );
+    
+    await ref.putFile(imageFile, metadata);
     return await ref.getDownloadURL();
   }
 
@@ -130,12 +120,11 @@ class _CreateEventPageState extends State<CreateEventPage> {
       });
     }
   }
-
   Future<void> _saveEvent() async {
     if (!_formKey.currentState!.validate()) return;
     if (_selectedDate == null || _selectedTime == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Please select date and time')),
+        const SnackBar(content: Text('Please select date and time')),
       );
       return;
     }
@@ -145,12 +134,16 @@ class _CreateEventPageState extends State<CreateEventPage> {
     });
     try {
       final user = FirebaseAuth.instance.currentUser!;
-      String? imageUrl;
-
-      if (_eventImage != null) {
+      String? imageUrl;      if (_eventImage != null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Uploading image...'),
+              duration: Duration(seconds: 2),
+            ),
+          );
+        }
         imageUrl = await _uploadImage(_eventImage!);
-      } else if (widget.eventData != null) {
-        imageUrl = widget.eventData!['imageUrl'];
       }
 
       final eventData = {
@@ -163,13 +156,9 @@ class _CreateEventPageState extends State<CreateEventPage> {
         'time':
             '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}',
         'maxParticipants': _maxParticipants,
-        'participants': widget.eventData != null
-            ? widget.eventData!['participants']
-            : [user.uid],
+        'participants': [user.uid],
         'createdBy': user.uid,
-        'createdAt': widget.eventData != null
-            ? widget.eventData!['createdAt']
-            : Timestamp.now(),
+        'createdAt': Timestamp.now(),
         'updatedAt': Timestamp.now(),
         'imageUrl': imageUrl,
       };
@@ -177,68 +166,53 @@ class _CreateEventPageState extends State<CreateEventPage> {
       if (widget.clubId != null) {
         // Club event
         eventData['isPublic'] = _isPublic;
-        if (widget.eventData != null) {
-          // Update existing event
-          await FirebaseFirestore.instance
-              .collection('club')
-              .doc(widget.clubId)
-              .collection('events')
-              .doc(widget.eventData!['id'])
-              .update(eventData);
-        } else {
-          // Create new event
-          await FirebaseFirestore.instance
-              .collection('club')
-              .doc(widget.clubId)
-              .collection('events')
-              .add(eventData);
-        }
+        await FirebaseFirestore.instance
+            .collection('club')
+            .doc(widget.clubId)
+            .collection('events')
+            .add(eventData);
       } else {
         // Personal event - store in main events collection
         eventData['isPublic'] = _isPublic;
         eventData['type'] = 'personal';
-        if (widget.eventData != null) {
-          await FirebaseFirestore.instance
-              .collection('events')
-              .doc(widget.eventData!['id'])
-              .update(eventData);
-        } else {
-          await FirebaseFirestore.instance.collection('events').add(eventData);
-        }
+        await FirebaseFirestore.instance.collection('events').add(eventData);
       }
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content: Text(widget.eventData != null
-                ? 'Event Updated!'
-                : 'Event Created!')),
-      );
-      Navigator.pop(context, true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Event Created!')),
+        );
+        Navigator.pop(context, true);
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
     } finally {
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
-
   @override
   Widget build(BuildContext context) {
-    final isEditing = widget.eventData != null;
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: Colors.black),
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(isEditing ? 'Edit Event' : 'Create Event',
-            style: TextStyle(color: Colors.black)),
+        title: const Text(
+          'Create Event',
+          style: TextStyle(color: Colors.black),
+        ),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -259,8 +233,7 @@ class _CreateEventPageState extends State<CreateEventPage> {
                       borderRadius: BorderRadius.circular(24),
                     ),
                     child: Stack(
-                      children: [
-                        Center(
+                      children: [                        Center(
                           child: _eventImage != null
                               ? ClipRRect(
                                   borderRadius: BorderRadius.circular(24),
@@ -270,8 +243,8 @@ class _CreateEventPageState extends State<CreateEventPage> {
                                       fit: BoxFit.cover),
                                 )
                               : _isPickingImage
-                                  ? CircularProgressIndicator()
-                                  : Icon(Icons.image,
+                                  ? const CircularProgressIndicator()
+                                  : const Icon(Icons.image,
                                       size: 70, color: Color(0xFF4A7AFF)),
                         ),
                         if (_eventImage != null)
@@ -285,17 +258,15 @@ class _CreateEventPageState extends State<CreateEventPage> {
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   shape: BoxShape.circle,
-                                ),
-                                child: Icon(Icons.close,
+                                ),                                child: const Icon(Icons.close,
                                     color: Colors.black, size: 20),
                               ),
                             ),
                           ),
                       ],
                     ),
-                  ),
-                ),
-                SizedBox(height: 24),
+                  ),                ),
+                const SizedBox(height: 24),
 
                 // Title field
                 TextFormField(
@@ -547,12 +518,16 @@ class _CreateEventPageState extends State<CreateEventPage> {
                       borderRadius: BorderRadius.circular(30),
                     ),
                   ),
-                  onPressed: _isLoading ? null : _saveEvent,
-                  child: _isLoading
-                      ? CircularProgressIndicator(color: Colors.white)
-                      : Text(isEditing ? 'Update Event' : 'Create Event',
+                  onPressed: _isLoading ? null : _saveEvent,                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                          'Create Event',
                           style: TextStyle(
-                              fontSize: 18, fontWeight: FontWeight.bold)),
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
                 ),
               ],
             ),

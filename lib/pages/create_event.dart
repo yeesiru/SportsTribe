@@ -7,18 +7,73 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class CreateEventPage extends StatefulWidget {
   final String? clubId; // Pass the clubId when navigating to this page
-  CreateEventPage({this.clubId});
+  final Map<String, dynamic>? eventData; // For editing existing event
+  CreateEventPage({this.clubId, this.eventData});
   @override
   State<CreateEventPage> createState() => _CreateEventPageState();
 }
 
 class _CreateEventPageState extends State<CreateEventPage> {
   final _formKey = GlobalKey<FormState>();
-  String content = '';
-  int participants = 1;
+
+  // Form controllers
+  final _titleController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _locationController = TextEditingController();
+
+  // Form variables
+  DateTime? _selectedDate;
+  TimeOfDay? _selectedTime;
+  String? _selectedSport;
+  String? _selectedLevel;
+  int _maxParticipants = 1;
+  bool _isPublic = true; // For personal events
   File? _eventImage;
   bool _isLoading = false;
   bool _isPickingImage = false;
+
+  final List<String> _sports = [
+    "Badminton",
+    "Tennis",
+    "Pickleball",
+    "Basketball",
+    "Football",
+    "Volleyball"
+  ];
+  final List<String> _levels = [
+    "Beginner",
+    "Intermediate",
+    "Advanced",
+    "All levels"
+  ];
+
+  @override
+  void initState() {
+    super.initState();
+    // If editing, populate fields
+    if (widget.eventData != null) {
+      _titleController.text = widget.eventData!['title'] ?? '';
+      _descriptionController.text = widget.eventData!['description'] ?? '';
+      _locationController.text = widget.eventData!['location'] ?? '';
+      _selectedSport = widget.eventData!['sport'];
+      _selectedLevel = widget.eventData!['level'];
+      _maxParticipants = widget.eventData!['maxParticipants'] ?? 1;
+      _isPublic = widget.eventData!['isPublic'] ?? true;
+
+      // Parse date and time if available
+      if (widget.eventData!['date'] != null) {
+        _selectedDate = (widget.eventData!['date'] as Timestamp).toDate();
+      }
+      if (widget.eventData!['time'] != null) {
+        final timeString = widget.eventData!['time'] as String;
+        final parts = timeString.split(':');
+        _selectedTime = TimeOfDay(
+          hour: int.parse(parts[0]),
+          minute: int.parse(parts[1]),
+        );
+      }
+    }
+  }
 
   Future<void> _pickImage() async {
     if (_isPickingImage) return;
@@ -50,39 +105,115 @@ class _CreateEventPageState extends State<CreateEventPage> {
     return await ref.getDownloadURL();
   }
 
-  Future<void> _createEvent() async {
+  Future<void> _selectDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate ?? DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(Duration(days: 365)),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
+  }
+
+  Future<void> _selectTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _selectedTime ?? TimeOfDay.now(),
+    );
+    if (picked != null) {
+      setState(() {
+        _selectedTime = picked;
+      });
+    }
+  }
+
+  Future<void> _saveEvent() async {
     if (!_formKey.currentState!.validate()) return;
-    _formKey.currentState!.save();
+    if (_selectedDate == null || _selectedTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Please select date and time')),
+      );
+      return;
+    }
+
     setState(() {
       _isLoading = true;
     });
     try {
-      final user = FirebaseAuth.instance.currentUser;
-      if (user == null || widget.clubId == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('User not logged in or club not selected.')),
-        );
-        return;
-      }
+      final user = FirebaseAuth.instance.currentUser!;
       String? imageUrl;
+
       if (_eventImage != null) {
         imageUrl = await _uploadImage(_eventImage!);
+      } else if (widget.eventData != null) {
+        imageUrl = widget.eventData!['imageUrl'];
       }
-      await FirebaseFirestore.instance
-          .collection('club')
-          .doc(widget.clubId)
-          .collection('events')
-          .add({
-        'content': content,
-        'participants': participants,
+
+      final eventData = {
+        'title': _titleController.text.trim(),
+        'description': _descriptionController.text.trim(),
+        'location': _locationController.text.trim(),
+        'sport': _selectedSport,
+        'level': _selectedLevel,
+        'date': Timestamp.fromDate(_selectedDate!),
+        'time':
+            '${_selectedTime!.hour.toString().padLeft(2, '0')}:${_selectedTime!.minute.toString().padLeft(2, '0')}',
+        'maxParticipants': _maxParticipants,
+        'participants': widget.eventData != null
+            ? widget.eventData!['participants']
+            : [user.uid],
         'createdBy': user.uid,
-        'createdAt': Timestamp.now(),
+        'createdAt': widget.eventData != null
+            ? widget.eventData!['createdAt']
+            : Timestamp.now(),
+        'updatedAt': Timestamp.now(),
         'imageUrl': imageUrl,
-      });
+      };
+
+      if (widget.clubId != null) {
+        // Club event
+        eventData['isPublic'] = _isPublic;
+        if (widget.eventData != null) {
+          // Update existing event
+          await FirebaseFirestore.instance
+              .collection('club')
+              .doc(widget.clubId)
+              .collection('events')
+              .doc(widget.eventData!['id'])
+              .update(eventData);
+        } else {
+          // Create new event
+          await FirebaseFirestore.instance
+              .collection('club')
+              .doc(widget.clubId)
+              .collection('events')
+              .add(eventData);
+        }
+      } else {
+        // Personal event - store in main events collection
+        eventData['isPublic'] = _isPublic;
+        eventData['type'] = 'personal';
+        if (widget.eventData != null) {
+          await FirebaseFirestore.instance
+              .collection('events')
+              .doc(widget.eventData!['id'])
+              .update(eventData);
+        } else {
+          await FirebaseFirestore.instance.collection('events').add(eventData);
+        }
+      }
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Event Created!')),
+        SnackBar(
+            content: Text(widget.eventData != null
+                ? 'Event Updated!'
+                : 'Event Created!')),
       );
-      Navigator.pop(context);
+      Navigator.pop(context, true);
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: $e')),
@@ -96,6 +227,7 @@ class _CreateEventPageState extends State<CreateEventPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isEditing = widget.eventData != null;
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -105,7 +237,8 @@ class _CreateEventPageState extends State<CreateEventPage> {
           icon: Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text('Create Event', style: TextStyle(color: Colors.black)),
+        title: Text(isEditing ? 'Edit Event' : 'Create Event',
+            style: TextStyle(color: Colors.black)),
         centerTitle: true,
       ),
       body: SingleChildScrollView(
@@ -136,8 +269,10 @@ class _CreateEventPageState extends State<CreateEventPage> {
                                       height: 140,
                                       fit: BoxFit.cover),
                                 )
-                              : Icon(Icons.image,
-                                  size: 70, color: Color(0xFF4A7AFF)),
+                              : _isPickingImage
+                                  ? CircularProgressIndicator()
+                                  : Icon(Icons.image,
+                                      size: 70, color: Color(0xFF4A7AFF)),
                         ),
                         if (_eventImage != null)
                           Positioned(
@@ -145,8 +280,15 @@ class _CreateEventPageState extends State<CreateEventPage> {
                             top: 12,
                             child: GestureDetector(
                               onTap: () => setState(() => _eventImage = null),
-                              child: Icon(Icons.close,
-                                  color: Colors.black, size: 28),
+                              child: Container(
+                                padding: EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: Icon(Icons.close,
+                                    color: Colors.black, size: 20),
+                              ),
                             ),
                           ),
                       ],
@@ -154,10 +296,32 @@ class _CreateEventPageState extends State<CreateEventPage> {
                   ),
                 ),
                 SizedBox(height: 24),
-                // Content field
+
+                // Title field
                 TextFormField(
+                  controller: _titleController,
                   decoration: InputDecoration(
-                    hintText: 'Write your content..',
+                    labelText: 'Event Title',
+                    hintText: 'Enter event title',
+                    filled: true,
+                    fillColor: Color(0xFFF5F7FB),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  validator: (value) => value == null || value.isEmpty
+                      ? 'Please enter event title'
+                      : null,
+                ),
+                SizedBox(height: 16),
+
+                // Description field
+                TextFormField(
+                  controller: _descriptionController,
+                  decoration: InputDecoration(
+                    labelText: 'Description',
+                    hintText: 'Describe your event',
                     filled: true,
                     fillColor: Color(0xFFF5F7FB),
                     border: OutlineInputBorder(
@@ -167,54 +331,214 @@ class _CreateEventPageState extends State<CreateEventPage> {
                   ),
                   maxLines: 3,
                   validator: (value) => value == null || value.isEmpty
-                      ? 'Please enter content'
+                      ? 'Please enter description'
                       : null,
-                  onSaved: (value) => content = value ?? '',
                 ),
-                SizedBox(height: 24),
-                // Number of Participants
+                SizedBox(height: 16),
+
+                // Date and Time row
+                Row(
+                  children: [
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: _selectDate,
+                        child: Container(
+                          padding: EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Color(0xFFF5F7FB),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.calendar_today,
+                                  color: Colors.grey[600]),
+                              SizedBox(width: 8),
+                              Text(
+                                _selectedDate != null
+                                    ? '${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year}'
+                                    : 'Select Date',
+                                style: TextStyle(
+                                  color: _selectedDate != null
+                                      ? Colors.black
+                                      : Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: GestureDetector(
+                        onTap: _selectTime,
+                        child: Container(
+                          padding: EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Color(0xFFF5F7FB),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.access_time, color: Colors.grey[600]),
+                              SizedBox(width: 8),
+                              Text(
+                                _selectedTime != null
+                                    ? _selectedTime!.format(context)
+                                    : 'Select Time',
+                                style: TextStyle(
+                                  color: _selectedTime != null
+                                      ? Colors.black
+                                      : Colors.grey[600],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 16),
+
+                // Location field
+                TextFormField(
+                  controller: _locationController,
+                  decoration: InputDecoration(
+                    labelText: 'Location',
+                    hintText: 'Enter event location',
+                    filled: true,
+                    fillColor: Color(0xFFF5F7FB),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(16),
+                      borderSide: BorderSide.none,
+                    ),
+                  ),
+                  validator: (value) => value == null || value.isEmpty
+                      ? 'Please enter location'
+                      : null,
+                ),
+                SizedBox(height: 16),
+
+                // Sport and Level dropdowns
+                Row(
+                  children: [
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedSport,
+                        decoration: InputDecoration(
+                          labelText: 'Sport',
+                          filled: true,
+                          fillColor: Color(0xFFF5F7FB),
+                          border: OutlineInputBorder(
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        items: _sports.map((sport) {
+                          return DropdownMenuItem<String>(
+                            value: sport,
+                            child: Text(sport),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedSport = value;
+                          });
+                        },
+                        validator: (value) =>
+                            value == null ? 'Please select sport' : null,
+                      ),
+                    ),
+                    SizedBox(width: 16),
+                    Expanded(
+                      child: DropdownButtonFormField<String>(
+                        value: _selectedLevel,
+                        decoration: InputDecoration(
+                          labelText: 'Level',
+                          filled: true,
+                          fillColor: Color(0xFFF5F7FB),
+                          border: OutlineInputBorder(
+                            borderSide: BorderSide.none,
+                          ),
+                        ),
+                        items: _levels.map((level) {
+                          return DropdownMenuItem<String>(
+                            value: level,
+                            child: Text(level),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() {
+                            _selectedLevel = value;
+                          });
+                        },
+                        validator: (value) =>
+                            value == null ? 'Please select level' : null,
+                      ),
+                    ),
+                  ],
+                ),
+                SizedBox(height: 16),
+
+                // Max participants
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('Number of Participants',
-                        style:
-                            TextStyle(color: Colors.grey[700], fontSize: 16)),
+                    Text('Max Participants',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w500)),
                     Row(
                       children: [
                         IconButton(
-                          icon: Icon(Icons.remove, size: 24),
-                          onPressed: () {
-                            setState(() {
-                              if (participants > 1) participants--;
-                            });
-                          },
+                          icon: Icon(Icons.remove),
+                          onPressed: () => setState(() {
+                            if (_maxParticipants > 1) _maxParticipants--;
+                          }),
                         ),
                         Container(
-                          width: 40,
-                          height: 36,
-                          alignment: Alignment.center,
+                          width: 50,
+                          padding: EdgeInsets.symmetric(vertical: 8),
                           decoration: BoxDecoration(
-                            color: Colors.white,
-                            border: Border.all(color: Colors.black12),
-                            borderRadius: BorderRadius.circular(10),
+                            color: Color(0xFFF5F7FB),
+                            borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Text('$participants',
-                              style: TextStyle(fontSize: 18)),
+                          child: Text('$_maxParticipants',
+                              textAlign: TextAlign.center),
                         ),
                         IconButton(
-                          icon: Icon(Icons.add, size: 24),
-                          onPressed: () {
-                            setState(() {
-                              participants++;
-                            });
-                          },
+                          icon: Icon(Icons.add),
+                          onPressed: () => setState(() => _maxParticipants++),
                         ),
                       ],
                     ),
                   ],
                 ),
+                SizedBox(height: 16),
+
+                // Public/Private toggle (only for personal events or club events)
+                if (widget.clubId == null || widget.clubId!.isEmpty)
+                  Container(
+                    padding: EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Color(0xFFF5F7FB),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('Public Event', style: TextStyle(fontSize: 16)),
+                        Switch(
+                          value: _isPublic,
+                          onChanged: (value) =>
+                              setState(() => _isPublic = value),
+                          activeColor: Colors.black,
+                        ),
+                      ],
+                    ),
+                  ),
                 SizedBox(height: 32),
-                // Post button
+
+                // Save button
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.black,
@@ -223,10 +547,10 @@ class _CreateEventPageState extends State<CreateEventPage> {
                       borderRadius: BorderRadius.circular(30),
                     ),
                   ),
-                  onPressed: _isLoading ? null : _createEvent,
+                  onPressed: _isLoading ? null : _saveEvent,
                   child: _isLoading
                       ? CircularProgressIndicator(color: Colors.white)
-                      : Text('Post',
+                      : Text(isEditing ? 'Update Event' : 'Create Event',
                           style: TextStyle(
                               fontSize: 18, fontWeight: FontWeight.bold)),
                 ),
@@ -236,5 +560,13 @@ class _CreateEventPageState extends State<CreateEventPage> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    _locationController.dispose();
+    super.dispose();
   }
 }

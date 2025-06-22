@@ -18,6 +18,8 @@ class _BrowseClubsPageState extends State<BrowseClubsPage> {
   String? _selectedSkillLevel;
   Set<String> _loadingClubIds = {};
   Set<String> _requestedClubIds = {};
+  bool _isInitializing = true;
+  String? _errorMessage;
 
   final List<String> _sports = [
     'All',
@@ -47,7 +49,14 @@ class _BrowseClubsPageState extends State<BrowseClubsPage> {
 
   // Load existing pending requests to update the UI state
   Future<void> _loadPendingRequests() async {
+    if (!mounted) return;
+
     try {
+      setState(() {
+        _isInitializing = true;
+        _errorMessage = null;
+      });
+
       final pendingRequests = await FirebaseFirestore.instance
           .collection('joinRequests')
           .where('userId', isEqualTo: user.uid)
@@ -59,10 +68,17 @@ class _BrowseClubsPageState extends State<BrowseClubsPage> {
           _requestedClubIds = pendingRequests.docs
               .map((doc) => doc.data()['clubId'] as String)
               .toSet();
+          _isInitializing = false;
         });
       }
     } catch (e) {
       print('Error loading pending requests: $e');
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to load requests: $e';
+          _isInitializing = false;
+        });
+      }
     }
   }
 
@@ -77,338 +93,294 @@ class _BrowseClubsPageState extends State<BrowseClubsPage> {
       ),
       body: Column(
         children: [
-          // Search bar
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search club...',
-                prefixIcon: Icon(Icons.search),
-                filled: true,
-                fillColor: Colors.white,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  borderSide: BorderSide.none,
-                ),
-                contentPadding:
-                    EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+          if (_isInitializing) Center(child: CircularProgressIndicator()),
+          if (_errorMessage != null)
+            Center(
+              child: Text(
+                _errorMessage!,
+                style: TextStyle(color: Colors.red),
               ),
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
             ),
-          ),
-          // Filter dropdowns
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: Row(
-              children: [
-                Expanded(
-                  child: DropdownButton<String>(
-                    isExpanded: true,
-                    value: _selectedSport ?? 'All',
-                    items: _sports.map((sport) {
-                      return DropdownMenuItem<String>(
-                        value: sport,
-                        child: Text(sport),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedSport = value;
-                      });
-                    },
+          if (!_isInitializing && _errorMessage == null) ...[
+            // Search bar
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: TextField(
+                decoration: InputDecoration(
+                  hintText: 'Search club...',
+                  prefixIcon: Icon(Icons.search),
+                  filled: true,
+                  fillColor: Colors.white,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(30),
+                    borderSide: BorderSide.none,
                   ),
+                  contentPadding:
+                      EdgeInsets.symmetric(horizontal: 20, vertical: 16),
                 ),
-                SizedBox(width: 16),
-                Expanded(
-                  child: DropdownButton<String>(
-                    isExpanded: true,
-                    value: _selectedSkillLevel ?? 'All',
-                    items: _skillLevels.map((level) {
-                      return DropdownMenuItem<String>(
-                        value: level,
-                        child: Text(level),
-                      );
-                    }).toList(),
-                    onChanged: (value) {
-                      setState(() {
-                        _selectedSkillLevel = value;
-                      });
-                    },
-                  ),
-                ),
-              ],
+                onChanged: (value) {
+                  setState(() {
+                    _searchQuery = value;
+                  });
+                },
+              ),
             ),
-          ),
-
-          // Clubs list
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: getAvailableClubs(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(child: CircularProgressIndicator());
-                }
-
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.groups_outlined,
-                            size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text(
-                          'No club available',
-                          style:
-                              TextStyle(fontSize: 18, color: Colors.grey[600]),
-                        ),
-                      ],
+            // Filter dropdowns
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      value: _selectedSport ?? 'All',
+                      items: _sports.map((sport) {
+                        return DropdownMenuItem<String>(
+                          value: sport,
+                          child: Text(sport),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedSport = value;
+                        });
+                      },
                     ),
-                  );
-                }
-
-                final clubs = snapshot.data!.docs.where((doc) {
-                  final club = doc.data() as Map<String, dynamic>;
-                  // First check if user is NOT a member of this club
-                  final members = (club['members'] as List?) ?? [];
-                  if (members.contains(user.uid)) {
-                    return false;
-                  }
-                  // Filter by sport
-                  if (_selectedSport != null && _selectedSport != 'All') {
-                    if ((club['sport'] ?? '').toString() != _selectedSport) {
-                      return false;
-                    }
-                  }
-                  // Filter by skill level
-                  if (_selectedSkillLevel != null &&
-                      _selectedSkillLevel != 'All') {
-                    if ((club['skillLevel'] ?? '').toString() !=
-                        _selectedSkillLevel) {
-                      return false;
-                    }
-                  }
-                  // Then apply search filter if there is one
-                  if (_searchQuery.isEmpty) {
-                    return true;
-                  }
-                  
-                  final name = club['name']?.toString().toLowerCase() ?? '';
-                  final sport = club['sport']?.toString().toLowerCase() ?? '';
-                  final search = _searchQuery.toLowerCase();
-                  return name.contains(search) || sport.contains(search);
-                }).toList();
-
-                if (clubs.isEmpty) {
-                  return Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.search_off, size: 64, color: Colors.grey),
-                        SizedBox(height: 16),
-                        Text(
-                          _searchQuery.isEmpty
-                              ? 'You\'ve joined all available clubs!'
-                              : 'No clubs match your search',
-                          style:
-                              TextStyle(fontSize: 18, color: Colors.grey[600]),
-                        ),
-                      ],
+                  ),
+                  SizedBox(width: 16),
+                  Expanded(
+                    child: DropdownButton<String>(
+                      isExpanded: true,
+                      value: _selectedSkillLevel ?? 'All',
+                      items: _skillLevels.map((level) {
+                        return DropdownMenuItem<String>(
+                          value: level,
+                          child: Text(level),
+                        );
+                      }).toList(),
+                      onChanged: (value) {
+                        setState(() {
+                          _selectedSkillLevel = value;
+                        });
+                      },
                     ),
-                  );
-                }
+                  ),
+                ],
+              ),
+            ),
 
-                return ListView.builder(
-                  padding: EdgeInsets.all(16),
-                  itemCount: clubs.length,
-                  itemBuilder: (context, index) {
-                    final club = clubs[index].data() as Map<String, dynamic>;
-                    final clubId = clubs[index].id;
+            // Clubs list
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: getAvailableClubs(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return Center(child: CircularProgressIndicator());
+                  }
 
-                    return Card(
-                      margin: EdgeInsets.only(bottom: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.groups_outlined,
+                              size: 64, color: Colors.grey),
+                          SizedBox(height: 16),
+                          Text(
+                            'No club available',
+                            style: TextStyle(
+                                fontSize: 18, color: Colors.grey[600]),
+                          ),
+                        ],
                       ),
-                      child: InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => ClubDetailsPage(
-                                clubId: clubId,
-                                clubData: club,
+                    );
+                  }
+
+                  final clubs = snapshot.data!.docs.where((doc) {
+                    final club = doc.data() as Map<String, dynamic>;
+                    // First check if user is NOT a member of this club
+                    final members = (club['members'] as List?) ?? [];
+                    if (members.contains(user.uid)) {
+                      return false;
+                    }
+                    // Filter by sport
+                    if (_selectedSport != null && _selectedSport != 'All') {
+                      if ((club['sport'] ?? '').toString() != _selectedSport) {
+                        return false;
+                      }
+                    }
+                    // Filter by skill level
+                    if (_selectedSkillLevel != null &&
+                        _selectedSkillLevel != 'All') {
+                      if ((club['skillLevel'] ?? '').toString() !=
+                          _selectedSkillLevel) {
+                        return false;
+                      }
+                    }
+                    // Then apply search filter if there is one
+                    if (_searchQuery.isEmpty) {
+                      return true;
+                    }
+
+                    final name = club['name']?.toString().toLowerCase() ?? '';
+                    final sport = club['sport']?.toString().toLowerCase() ?? '';
+                    final search = _searchQuery.toLowerCase();
+                    return name.contains(search) || sport.contains(search);
+                  }).toList();
+
+                  if (clubs.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.search_off, size: 64, color: Colors.grey),
+                          SizedBox(height: 16),
+                          Text(
+                            _searchQuery.isEmpty
+                                ? 'You\'ve joined all available clubs!'
+                                : 'No clubs match your search',
+                            style: TextStyle(
+                                fontSize: 18, color: Colors.grey[600]),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: EdgeInsets.all(16),
+                    itemCount: clubs.length,
+                    itemBuilder: (context, index) {
+                      final club = clubs[index].data() as Map<String, dynamic>;
+                      final clubId = clubs[index].id;
+
+                      return Card(
+                        margin: EdgeInsets.only(bottom: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(16),
+                        ),
+                        child: InkWell(
+                          onTap: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => ClubDetailsPage(
+                                  clubId: clubId,
+                                  clubData: club,
+                                ),
                               ),
-                            ),
-                          );
-                        },
-                        child: Padding(
-                          padding: EdgeInsets.all(16),
-                          child: Row(
-                            children: [
-                              // Club image
-                              CircleAvatar(
-                                radius: 30,
-                                backgroundColor: Color(0xFFD7F520),
-                                backgroundImage: club['imageUrl'] != null
-                                    ? NetworkImage(club['imageUrl'])
-                                    : null,
-                                child: club['imageUrl'] == null
-                                    ? Icon(Icons.sports_tennis,
-                                        color: Colors.black87)
-                                    : null,
-                              ),
-                              SizedBox(width: 16),
-                              // Club info
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: Text(
-                                            club['name'] ?? 'Club Name',
-                                            style: TextStyle(
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
+                            );
+                          },
+                          child: Padding(
+                            padding: EdgeInsets.all(16),
+                            child: Row(
+                              children: [
+                                // Club image
+                                CircleAvatar(
+                                  radius: 30,
+                                  backgroundColor: Color(0xFFD7F520),
+                                  backgroundImage: club['imageUrl'] != null
+                                      ? NetworkImage(club['imageUrl'])
+                                      : null,
+                                  child: club['imageUrl'] == null
+                                      ? Icon(Icons.sports_tennis,
+                                          color: Colors.black87)
+                                      : null,
+                                ),
+                                SizedBox(width: 16),
+                                // Club info
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              club['name'] ?? 'Club Name',
+                                              style: TextStyle(
+                                                fontSize: 18,
+                                                fontWeight: FontWeight.bold,
+                                              ),
                                             ),
                                           ),
-                                        ),
-                                        SizedBox(width: 6),
-                                        Container(
-                                          padding: EdgeInsets.symmetric(
-                                              horizontal: 8, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: (club['isPrivate'] ?? false)
-                                                ? Colors.red[100]
-                                                : Colors.green[100],
-                                            borderRadius:
-                                                BorderRadius.circular(10),
-                                          ),
-                                          child: Row(
-                                            children: [
-                                              Icon(
-                                                (club['isPrivate'] ?? false)
-                                                    ? Icons.lock
-                                                    : Icons.lock_open,
-                                                size: 15,
-                                                color:
-                                                    (club['isPrivate'] ?? false)
-                                                        ? Colors.red
-                                                        : Colors.green,
-                                              ),
-                                              SizedBox(width: 3),
-                                              Text(
-                                                (club['isPrivate'] ?? false)
-                                                    ? 'Private'
-                                                    : 'Public',
-                                                style: TextStyle(
+                                          SizedBox(width: 6),
+                                          Container(
+                                            padding: EdgeInsets.symmetric(
+                                                horizontal: 8, vertical: 2),
+                                            decoration: BoxDecoration(
+                                              color:
+                                                  (club['isPrivate'] ?? false)
+                                                      ? Colors.red[100]
+                                                      : Colors.green[100],
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  (club['isPrivate'] ?? false)
+                                                      ? Icons.lock
+                                                      : Icons.lock_open,
+                                                  size: 15,
                                                   color: (club['isPrivate'] ??
                                                           false)
                                                       ? Colors.red
                                                       : Colors.green,
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 12,
                                                 ),
-                                              ),
-                                            ],
+                                                SizedBox(width: 3),
+                                                Text(
+                                                  (club['isPrivate'] ?? false)
+                                                      ? 'Private'
+                                                      : 'Public',
+                                                  style: TextStyle(
+                                                    color: (club['isPrivate'] ??
+                                                            false)
+                                                        ? Colors.red
+                                                        : Colors.green,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 12,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
                                           ),
+                                        ],
+                                      ),
+                                      SizedBox(height: 4),
+                                      Text(
+                                        '${club['sport']} · ${club['skillLevel']}',
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 14,
                                         ),
-                                      ],
-                                    ),
-                                    SizedBox(height: 4),
-                                    Text(
-                                      '${club['sport']} · ${club['skillLevel']}',
-                                      style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 14,
                                       ),
-                                    ),
-                                    SizedBox(height: 4),
-                                    Text(
-                                      club['location'] ?? 'No location',
-                                      style: TextStyle(
-                                        color: Colors.grey[600],
-                                        fontSize: 14,
+                                      SizedBox(height: 4),
+                                      Text(
+                                        club['location'] ?? 'No location',
+                                        style: TextStyle(
+                                          color: Colors.grey[600],
+                                          fontSize: 14,
+                                        ),
                                       ),
-                                    ),
-                                    SizedBox(height: 8),
-                                    Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: ElevatedButton(
-                                        onPressed: _loadingClubIds
-                                                .contains(clubId)
-                                            ? null
-                                            : _requestedClubIds.contains(clubId)
-                                                ? () async {
-                                                    // Cancel existing request
-                                                    setState(() {
-                                                      _loadingClubIds
-                                                          .add(clubId);
-                                                    });
-                                                    await _cancelRequest(
-                                                        clubId);
-                                                    if (mounted) {
+                                      SizedBox(height: 8),
+                                      Align(
+                                        alignment: Alignment.centerLeft,
+                                        child: ElevatedButton(
+                                          onPressed: _loadingClubIds
+                                                  .contains(clubId)
+                                              ? null
+                                              : _requestedClubIds
+                                                      .contains(clubId)
+                                                  ? () async {
+                                                      // Cancel existing request
                                                       setState(() {
                                                         _loadingClubIds
-                                                            .remove(clubId);
+                                                            .add(clubId);
                                                       });
-                                                    }
-                                                  }
-                                                : () async {
-                                                    setState(() {
-                                                      _loadingClubIds
-                                                          .add(clubId);
-                                                    });
-                                                    try {
-                                                      if (club['isPrivate'] ??
-                                                          false) {
-                                                        // Use enhanced request method
-                                                        await _requestToJoinClub(
-                                                            clubId);
-                                                      } else {
-                                                        // Direct join for public clubs
-                                                        await FirebaseFirestore
-                                                            .instance
-                                                            .collection('club')
-                                                            .doc(clubId)
-                                                            .update({
-                                                          'members': FieldValue
-                                                              .arrayUnion(
-                                                                  [user.uid])
-                                                        });
-                                                        if (mounted) {
-                                                          ScaffoldMessenger.of(
-                                                                  context)
-                                                              .showSnackBar(
-                                                            SnackBar(
-                                                              content: Text(
-                                                                  'Successfully joined the club!'),
-                                                              backgroundColor:
-                                                                  Colors.green,
-                                                            ),
-                                                          );
-                                                        }
-                                                      }
-                                                    } catch (e) {
-                                                      if (mounted) {
-                                                        ScaffoldMessenger.of(
-                                                                context)
-                                                            .showSnackBar(
-                                                          SnackBar(
-                                                            content: Text(
-                                                                'Error: $e'),
-                                                            backgroundColor:
-                                                                Colors.red,
-                                                          ),
-                                                        );
-                                                      }
-                                                    } finally {
+                                                      await _cancelRequest(
+                                                          clubId);
                                                       if (mounted) {
                                                         setState(() {
                                                           _loadingClubIds
@@ -416,58 +388,118 @@ class _BrowseClubsPageState extends State<BrowseClubsPage> {
                                                         });
                                                       }
                                                     }
-                                                  },
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor:
-                                              _requestedClubIds.contains(clubId)
-                                                  ? Colors.orange[400]
-                                                  : (club['isPrivate'] ?? false)
-                                                      ? Color(0xFFD7F520)
-                                                      : Color(0xFFD7F520),
-                                          foregroundColor:
-                                              _requestedClubIds.contains(clubId)
-                                                  ? Colors.white
-                                                  : Colors.black,
-                                          padding: EdgeInsets.symmetric(
-                                              horizontal: 18, vertical: 8),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(8),
-                                          ),
-                                          elevation: 0,
-                                        ),
-                                        child: _loadingClubIds.contains(clubId)
-                                            ? SizedBox(
-                                                width: 18,
-                                                height: 18,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                  color: Colors.black,
-                                                ))
-                                            : Text(_requestedClubIds
+                                                  : () async {
+                                                      setState(() {
+                                                        _loadingClubIds
+                                                            .add(clubId);
+                                                      });
+                                                      try {
+                                                        if (club['isPrivate'] ??
+                                                            false) {
+                                                          // Use enhanced request method
+                                                          await _requestToJoinClub(
+                                                              clubId);
+                                                        } else {
+                                                          // Direct join for public clubs
+                                                          await FirebaseFirestore
+                                                              .instance
+                                                              .collection(
+                                                                  'club')
+                                                              .doc(clubId)
+                                                              .update({
+                                                            'members': FieldValue
+                                                                .arrayUnion(
+                                                                    [user.uid])
+                                                          });
+                                                          if (mounted) {
+                                                            ScaffoldMessenger
+                                                                    .of(context)
+                                                                .showSnackBar(
+                                                              SnackBar(
+                                                                content: Text(
+                                                                    'Successfully joined the club!'),
+                                                                backgroundColor:
+                                                                    Colors
+                                                                        .green,
+                                                              ),
+                                                            );
+                                                          }
+                                                        }
+                                                      } catch (e) {
+                                                        if (mounted) {
+                                                          ScaffoldMessenger.of(
+                                                                  context)
+                                                              .showSnackBar(
+                                                            SnackBar(
+                                                              content: Text(
+                                                                  'Error: $e'),
+                                                              backgroundColor:
+                                                                  Colors.red,
+                                                            ),
+                                                          );
+                                                        }
+                                                      } finally {
+                                                        if (mounted) {
+                                                          setState(() {
+                                                            _loadingClubIds
+                                                                .remove(clubId);
+                                                          });
+                                                        }
+                                                      }
+                                                    },
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: _requestedClubIds
                                                     .contains(clubId)
-                                                ? 'Cancel Request'
+                                                ? Colors.orange[400]
                                                 : (club['isPrivate'] ?? false)
-                                                    ? 'Request'
-                                                    : 'Join'),
+                                                    ? Color(0xFFD7F520)
+                                                    : Color(0xFFD7F520),
+                                            foregroundColor: _requestedClubIds
+                                                    .contains(clubId)
+                                                ? Colors.white
+                                                : Colors.black,
+                                            padding: EdgeInsets.symmetric(
+                                                horizontal: 18, vertical: 8),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(8),
+                                            ),
+                                            elevation: 0,
+                                          ),
+                                          child: _loadingClubIds
+                                                  .contains(clubId)
+                                              ? SizedBox(
+                                                  width: 18,
+                                                  height: 18,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                    color: Colors.black,
+                                                  ))
+                                              : Text(_requestedClubIds
+                                                      .contains(clubId)
+                                                  ? 'Cancel Request'
+                                                  : (club['isPrivate'] ?? false)
+                                                      ? 'Request'
+                                                      : 'Join'),
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              // Arrow icon
-                              Icon(Icons.chevron_right, color: Colors.grey),
-                            ],
+                                // Arrow icon
+                                Icon(Icons.chevron_right, color: Colors.grey),
+                              ],
+                            ),
                           ),
                         ),
-                      ),
-                    );
-                  },
-                );
-              },
+                      );
+                    },
+                  );
+                },
+              ),
             ),
-          ),
+          ],
         ],
       ),
     );
@@ -619,32 +651,6 @@ class _BrowseClubsPageState extends State<BrowseClubsPage> {
           ),
         );
       }
-    }
-  }
-
-  // Helper function to add user to club and update user's communityList
-  Future<void> _addUserToClubFromBrowse(String clubId, String userId) async {
-    final batch = FirebaseFirestore.instance.batch();
-
-    try {
-      // Add user to club members
-      final clubRef = FirebaseFirestore.instance.collection('club').doc(clubId);
-      batch.update(clubRef, {
-        'members': FieldValue.arrayUnion([userId])
-      });
-
-      // Add club to user's communityList
-      final userRef =
-          FirebaseFirestore.instance.collection('users').doc(userId);
-      batch.update(userRef, {
-        'communityList': FieldValue.arrayUnion([clubId])
-      });
-
-      // Commit the batch
-      await batch.commit();
-    } catch (e) {
-      print('Error adding user to club: $e');
-      rethrow;
     }
   }
 }

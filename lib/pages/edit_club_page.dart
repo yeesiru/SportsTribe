@@ -48,7 +48,8 @@ class _EditClubPageState extends State<EditClubPage> {
     super.initState();
     // Initialize controllers with existing data
     _clubNameController = TextEditingController(text: widget.clubData['name']);
-    _locationController = TextEditingController(text: widget.clubData['location']);
+    _locationController =
+        TextEditingController(text: widget.clubData['location']);
     _selectedSport = widget.clubData['sport'];
     _selectedSkillLevel = widget.clubData['skillLevel'];
     _isPrivate = widget.clubData['isPrivate'] ?? false;
@@ -107,20 +108,25 @@ class _EditClubPageState extends State<EditClubPage> {
       }
 
       // Update club data in Firestore
-      await FirebaseFirestore.instance.collection('club').doc(widget.clubId).update({
+      await FirebaseFirestore.instance
+          .collection('club')
+          .doc(widget.clubId)
+          .update({
         'name': _clubNameController.text.trim(),
         'sport': _selectedSport,
         'skillLevel': _selectedSkillLevel,
         'location': _locationController.text.trim(),
         'isPrivate': _isPrivate,
         if (imageUrl != null) 'imageUrl': imageUrl,
+        'updatedAt': Timestamp.now(),
       });
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Club updated successfully!')),
         );
-        Navigator.pop(context, true); // Return true to indicate successful update
+        Navigator.pop(
+            context, true); // Return true to indicate successful update
       }
     } catch (e) {
       if (mounted) {

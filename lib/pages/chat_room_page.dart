@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 import 'package:map_project/models/club.dart';
 import 'package:map_project/models/chat_message.dart';
 import 'package:map_project/models/app_user.dart';
@@ -75,27 +76,30 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
       // Put the message back in the text field
       _messageController.text = message;
     }
-  }
-
-  Widget _buildMemberProfile(AppUser member) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8.0),
+  }  Widget _buildMemberProfile(AppUser member) {
+    return Container(
+      constraints: BoxConstraints(maxWidth: 70), // Add width constraint to prevent overflow
+      padding: const EdgeInsets.only(right: 12.0), // Slightly increased spacing
       child: Column(
+        mainAxisSize: MainAxisSize.min, // Prevent overflow
         children: [
           StreamBuilder<Map<String, dynamic>?>(
             stream: UserService.getUserDataStream(member.uid),
-            builder: (context, snapshot) {
-              return UserAvatar(
+            builder: (context, snapshot) {              return UserAvatar(
                 userData: snapshot.data,
-                radius: 20,
+                radius: 24, // Increased from 18 to 24
               );
             },
           ),
-          SizedBox(height: 4),
-          Text(
-            member.name.split(' ').first,
-            style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
-            overflow: TextOverflow.ellipsis,
+          SizedBox(height: 4),          Container(
+            width: 70, // Increased from 60 to accommodate larger avatar
+            child: Text(
+              member.name.split(' ').first,
+              style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500),
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              maxLines: 1, // Ensure single line
+            ),
           ),
         ],
       ),
@@ -133,17 +137,17 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                     padding: EdgeInsets.only(right: 8),
                     child: StreamBuilder<Map<String, dynamic>?>(
                       stream: UserService.getUserDataStream(message.senderId),
-                      builder: (context, snapshot) {
-                        return UserAvatar(
+                      builder: (context, snapshot) {                        return UserAvatar(
                           userData: snapshot.data,
-                          radius: 12,
+                          radius: 16, // Increased from 12 to 16
                         );
-                      },
-                    ),
-                  ),
-                Flexible(
+                      },                    ),
+                  ),                IntrinsicWidth(
                   child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                    constraints: BoxConstraints(
+                      maxWidth: MediaQuery.of(context).size.width * 0.75, // Max 75% of screen width
+                    ),
+                    padding: EdgeInsets.fromLTRB(16, 10, 16, 8),
                     decoration: BoxDecoration(
                       color: isMe ? Color(0xFFD7F520) : Colors.grey[200],
                       borderRadius: BorderRadius.only(
@@ -153,26 +157,29 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                         bottomRight: Radius.circular(isMe ? 4 : 16),
                       ),
                     ),
-                    child: Text(
-                      message.message,
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: isMe ? Colors.black : Colors.black87,
-                      ),
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: EdgeInsets.only(
-                    left: isMe ? 8 : 0,
-                    right: isMe ? 0 : 8,
-                    bottom: 2,
-                  ),
-                  child: Text(
-                    ChatService.formatMessageTime(message.timestamp),
-                    style: TextStyle(
-                      fontSize: 10,
-                      color: Colors.grey[500],
+                    child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            message.message,
+                            style: TextStyle(
+                              fontSize: 14,
+                              color: isMe ? Colors.black : Colors.black87,
+                          ),
+                        ),
+                        SizedBox(height: 4),                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Text(
+                              _formatMalaysiaTime(message.timestamp),
+                              style: TextStyle(
+                                fontSize: 10,
+                                color: isMe ? Colors.black54 : Colors.grey[600],
+                              ),
+                            ),                          ],                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -184,22 +191,93 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
     );
   }
 
+  // Format time for Malaysia timezone (UTC+8)
+  String _formatMalaysiaTime(DateTime timestamp) {
+    // Convert to Malaysia time (UTC+8)
+    final malaysiaTime = timestamp.add(Duration(hours: 8));
+    return DateFormat('h:mm a').format(malaysiaTime);
+  }
+  // Helper method to check if we should show date header
+  bool _shouldShowDateHeader(List<ChatMessage> messages, int index) {
+    if (index == messages.length - 1) return true; // Always show for first message
+    
+    final currentMessage = messages[index];
+    final nextMessage = messages[index + 1];
+    
+    // Convert to Malaysia time for date comparison
+    final currentMalaysiaTime = currentMessage.timestamp.add(Duration(hours: 8));
+    final nextMalaysiaTime = nextMessage.timestamp.add(Duration(hours: 8));
+    
+    final currentDate = DateTime(
+      currentMalaysiaTime.year,
+      currentMalaysiaTime.month,
+      currentMalaysiaTime.day,
+    );
+    
+    final nextDate = DateTime(
+      nextMalaysiaTime.year,
+      nextMalaysiaTime.month,
+      nextMalaysiaTime.day,
+    );
+    
+    return !currentDate.isAtSameMomentAs(nextDate);
+  }
+  // Format date for header using Malaysia time
+  String _formatDateHeader(DateTime timestamp) {
+    // Convert to Malaysia time (UTC+8)
+    final malaysiaTime = timestamp.add(Duration(hours: 8));
+    final now = DateTime.now().add(Duration(hours: 8)); // Current Malaysia time
+    final today = DateTime(now.year, now.month, now.day);
+    final yesterday = today.subtract(Duration(days: 1));
+    final messageDate = DateTime(malaysiaTime.year, malaysiaTime.month, malaysiaTime.day);
+
+    if (messageDate.isAtSameMomentAs(today)) {
+      return 'Today';
+    } else if (messageDate.isAtSameMomentAs(yesterday)) {
+      return 'Yesterday';
+    } else {
+      return DateFormat('MMM dd, yyyy').format(malaysiaTime);
+    }
+  }
+
+  // Build date header widget
+  Widget _buildDateHeader(DateTime timestamp) {
+    return Container(
+      margin: EdgeInsets.symmetric(vertical: 16),
+      child: Center(
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.grey[300],
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            _formatDateHeader(timestamp),
+            style: TextStyle(
+              fontSize: 12,
+              color: Colors.grey[700],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
       body: Column(
-        children: [
-          // Header
+        children: [          // Header
           Container(
-            padding: EdgeInsets.fromLTRB(20, 60, 20, 20),
+            padding: EdgeInsets.fromLTRB(20, 50, 20, 15), // Reduced top and bottom padding
             decoration: BoxDecoration(
               color: Color(0xFFD7F520),
               borderRadius: BorderRadius.only(
                 bottomLeft: Radius.circular(20),
                 bottomRight: Radius.circular(20),
-              ),
-            ),
+              ),            ),
             child: Column(
               children: [
                 Row(
@@ -207,6 +285,8 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                     IconButton(
                       onPressed: () => Navigator.pop(context),
                       icon: Icon(Icons.arrow_back, color: Colors.black),
+                      padding: EdgeInsets.zero, // Remove default padding
+                      constraints: BoxConstraints(), // Remove minimum size constraints
                     ),
                     SizedBox(width: 8),
                     Expanded(
@@ -217,29 +297,32 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                           fontWeight: FontWeight.bold,
                           color: Colors.black,
                         ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
+                        overflow: TextOverflow.ellipsis,                      ),
                     ),
-                  ],
-                ),
-                SizedBox(height: 16), // Member profiles
-                Container(
-                  height: 60,
-                  child: clubMembers.isEmpty
-                      ? Center(
-                          child: Text(
-                            'Loading members...',
-                            style:
-                                TextStyle(color: Colors.black54, fontSize: 12),
+                  ],                ),
+                SizedBox(height: 12), // Reduced spacing to make header shorter                // Member profiles with better alignment
+                Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8), // Add horizontal padding to match avatar spacing
+                  child: SizedBox(
+                    height: 70, // Increased height to accommodate avatar (40) + spacing (4) + text (~20)
+                    child: clubMembers.isEmpty
+                        ? Center(
+                            child: Text(
+                              'Loading members...',
+                              style:
+                                  TextStyle(color: Colors.black54, fontSize: 12),
+                            ),
+                          )
+                        : ClipRect(
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: clubMembers.length,
+                              itemBuilder: (context, index) {
+                                return _buildMemberProfile(clubMembers[index]);
+                              },
+                            ),
                           ),
-                        )
-                      : ListView.builder(
-                          scrollDirection: Axis.horizontal,
-                          itemCount: clubMembers.length,
-                          itemBuilder: (context, index) {
-                            return _buildMemberProfile(clubMembers[index]);
-                          },
-                        ),
+                  ),
                 ),
               ],
             ),
@@ -300,8 +383,15 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                     itemCount: messages.length,
                     itemBuilder: (context, index) {
                       final message = messages[index];
-                      final isMe = message.senderId == user.uid;
-                      return _buildMessageBubble(message, isMe);
+                      final isMe = message.senderId == user.uid;                      // Show date header if it's the first message or date has changed
+                      final showDateHeader = _shouldShowDateHeader(messages, index);
+                      return Column(
+                        children: [
+                          if (showDateHeader)
+                            _buildDateHeader(message.timestamp),
+                          _buildMessageBubble(message, isMe),
+                        ],
+                      );
                     },
                   );
                 },

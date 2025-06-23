@@ -27,7 +27,7 @@ class _UserViewRewardsPageState extends State<UserViewRewardsPage> {
           .collection('users')
           .doc(user.uid)
           .get();
-      
+
       if (userDoc.exists) {
         Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
         setState(() {
@@ -48,8 +48,14 @@ class _UserViewRewardsPageState extends State<UserViewRewardsPage> {
     return Scaffold(
       backgroundColor: Colors.grey[50],
       appBar: AppBar(
-        title: const Text('Rewards Store'),
-        backgroundColor: Colors.white,
+        title: const Text(
+          'Rewards Store',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Colors.black87,
+          ),
+        ),
+        backgroundColor: Color(0xFFD7F520),
         foregroundColor: Colors.black87,
         elevation: 0,
         actions: [
@@ -57,18 +63,19 @@ class _UserViewRewardsPageState extends State<UserViewRewardsPage> {
             margin: EdgeInsets.all(8),
             padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.blue[600],
+              color: Colors.black.withOpacity(0.1),
               borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: Colors.black.withOpacity(0.2)),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.stars, color: Colors.white, size: 20),
+                Icon(Icons.stars, color: Colors.black87, size: 20),
                 SizedBox(width: 6),
                 Text(
                   '$_userPoints',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: Colors.black87,
                     fontWeight: FontWeight.bold,
                     fontSize: 16,
                   ),
@@ -79,37 +86,99 @@ class _UserViewRewardsPageState extends State<UserViewRewardsPage> {
         ],
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [Color(0xFFD7F520), Color(0xFFB8D404)],
+                      ),
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                        valueColor:
+                            AlwaysStoppedAnimation<Color>(Colors.black87),
+                        strokeWidth: 3,
+                      ),
+                    ),
+                  ),
+                  SizedBox(height: 16),
+                  Text(
+                    'Loading rewards...',
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: Colors.grey[600],
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ],
+              ),
+            )
           : StreamBuilder<QuerySnapshot>(
               stream: FirebaseFirestore.instance
                   .collection('rewards')
-                  .where('isActive', isEqualTo: true)
-                  .orderBy('pointsCost')
+                  .where('availability', isEqualTo: 'Available')
                   .snapshots(),
               builder: (context, snapshot) {
+                print(
+                    'Rewards query - Connection state: ${snapshot.connectionState}');
+                print('Rewards query - Has error: ${snapshot.hasError}');
+                if (snapshot.hasError) {
+                  print('Rewards query error: ${snapshot.error}');
+                }
+                print('Rewards query - Has data: ${snapshot.hasData}');
+                if (snapshot.hasData) {
+                  print(
+                      'Rewards query - Document count: ${snapshot.data!.docs.length}');
+                }
                 if (snapshot.hasError) {
                   return Center(
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.error_outline, size: 64, color: Colors.red[300]),
+                        Icon(Icons.error_outline,
+                            size: 64, color: Colors.red[300]),
                         SizedBox(height: 16),
                         Text(
                           'Error loading rewards',
-                          style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                          style:
+                              TextStyle(fontSize: 18, color: Colors.grey[600]),
                         ),
                         SizedBox(height: 8),
                         Text(
                           'Please try again later',
-                          style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                          style:
+                              TextStyle(fontSize: 14, color: Colors.grey[500]),
                         ),
                       ],
                     ),
                   );
                 }
-                
                 if (snapshot.connectionState == ConnectionState.waiting) {
-                  return Center(child: CircularProgressIndicator());
+                  return Center(
+                    child: Container(
+                      width: 60,
+                      height: 60,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Color(0xFFD7F520), Color(0xFFB8D404)],
+                        ),
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          valueColor:
+                              AlwaysStoppedAnimation<Color>(Colors.black87),
+                          strokeWidth: 3,
+                        ),
+                      ),
+                    ),
+                  );
                 }
 
                 final rewards = snapshot.data!.docs;
@@ -119,16 +188,19 @@ class _UserViewRewardsPageState extends State<UserViewRewardsPage> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.card_giftcard, size: 64, color: Colors.grey[400]),
+                        Icon(Icons.card_giftcard,
+                            size: 64, color: Colors.grey[400]),
                         SizedBox(height: 16),
                         Text(
                           'No rewards available',
-                          style: TextStyle(fontSize: 18, color: Colors.grey[600]),
+                          style:
+                              TextStyle(fontSize: 18, color: Colors.grey[600]),
                         ),
                         SizedBox(height: 8),
                         Text(
                           'Check back later for new rewards!',
-                          style: TextStyle(fontSize: 14, color: Colors.grey[500]),
+                          style:
+                              TextStyle(fontSize: 14, color: Colors.grey[500]),
                         ),
                       ],
                     ),
@@ -148,12 +220,16 @@ class _UserViewRewardsPageState extends State<UserViewRewardsPage> {
                     itemCount: rewards.length,
                     itemBuilder: (context, index) {
                       final rewardDoc = rewards[index];
-                      final rewardData = rewardDoc.data() as Map<String, dynamic>;
-                      final canAfford = _userPoints >= (rewardData['pointsCost'] ?? 0);
-                      final isAvailable = (rewardData['quantity'] == null) || 
-                          ((rewardData['redeemedCount'] ?? 0) < rewardData['quantity']);
+                      final rewardData =
+                          rewardDoc.data() as Map<String, dynamic>;
+                      final canAfford =
+                          _userPoints >= (rewardData['pointsCost'] ?? 0);
+                      final isAvailable = (rewardData['quantity'] == null) ||
+                          ((rewardData['redeemedCount'] ?? 0) <
+                              rewardData['quantity']);
 
-                      return _buildRewardCard(rewardDoc, rewardData, canAfford, isAvailable);
+                      return _buildRewardCard(
+                          rewardDoc, rewardData, canAfford, isAvailable);
                     },
                   ),
                 );
@@ -162,19 +238,23 @@ class _UserViewRewardsPageState extends State<UserViewRewardsPage> {
     );
   }
 
-  Widget _buildRewardCard(QueryDocumentSnapshot rewardDoc, Map<String, dynamic> rewardData, bool canAfford, bool isAvailable) {
+  Widget _buildRewardCard(QueryDocumentSnapshot rewardDoc,
+      Map<String, dynamic> rewardData, bool canAfford, bool isAvailable) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: canAfford && isAvailable ? Colors.green[300]! : Colors.grey[200]!,
+          color:
+              canAfford && isAvailable ? Color(0xFFD7F520) : Colors.grey[200]!,
           width: canAfford && isAvailable ? 2 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
+            color: canAfford && isAvailable
+                ? Color(0xFFD7F520).withOpacity(0.3)
+                : Colors.black.withOpacity(0.05),
+            blurRadius: 8,
             offset: Offset(0, 2),
           ),
         ],
@@ -188,18 +268,19 @@ class _UserViewRewardsPageState extends State<UserViewRewardsPage> {
             child: Container(
               width: double.infinity,
               decoration: BoxDecoration(
-                color: Colors.grey[100],
+                color: Color(0xFFD7F520).withOpacity(0.1),
                 borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
                 ),
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
                 ),
-                child: rewardData['imageUrl'] != null && rewardData['imageUrl'].isNotEmpty
+                child: rewardData['imageUrl'] != null &&
+                        rewardData['imageUrl'].isNotEmpty
                     ? Image.network(
                         rewardData['imageUrl'],
                         fit: BoxFit.cover,
@@ -207,8 +288,8 @@ class _UserViewRewardsPageState extends State<UserViewRewardsPage> {
                           return Center(
                             child: Icon(
                               Icons.card_giftcard,
-                              size: 48,
-                              color: Colors.grey[400],
+                              size: 40,
+                              color: Color(0xFFB8D404),
                             ),
                           );
                         },
@@ -216,47 +297,49 @@ class _UserViewRewardsPageState extends State<UserViewRewardsPage> {
                     : Center(
                         child: Icon(
                           Icons.card_giftcard,
-                          size: 48,
-                          color: Colors.grey[400],
+                          size: 40,
+                          color: Color(0xFFB8D404),
                         ),
                       ),
               ),
             ),
-          ),
-
-          // Reward Details
+          ), // Reward Details
           Expanded(
             flex: 2,
             child: Padding(
-              padding: EdgeInsets.all(12),
+              padding: EdgeInsets.all(10),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   // Title
                   Text(
-                    rewardData['title'] ?? 'Reward',
+                    rewardData['name'] ?? 'Reward',
                     style: TextStyle(
-                      fontSize: 16,
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
                       color: Colors.black87,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  
-                  SizedBox(height: 4),
-                  
+
+                  SizedBox(height: 2),
+
                   // Description
-                  if (rewardData['description'] != null && rewardData['description'].isNotEmpty)
-                    Text(
-                      rewardData['description'],
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.grey[600],
-                        height: 1.3,
+                  if (rewardData['description'] != null &&
+                      rewardData['description'].isNotEmpty)
+                    Flexible(
+                      child: Text(
+                        rewardData['description'],
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: Colors.grey[600],
+                          height: 1.2,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
                     ),
 
                   Spacer(),
@@ -266,41 +349,47 @@ class _UserViewRewardsPageState extends State<UserViewRewardsPage> {
                     children: [
                       Icon(
                         Icons.stars,
-                        size: 16,
-                        color: Colors.amber[600],
+                        size: 14,
+                        color: Color(0xFFB8D404),
                       ),
-                      SizedBox(width: 4),
+                      SizedBox(width: 2),
                       Text(
                         '${rewardData['pointsCost'] ?? 0}',
                         style: TextStyle(
-                          fontSize: 14,
+                          fontSize: 12,
                           fontWeight: FontWeight.bold,
-                          color: canAfford ? Colors.amber[700] : Colors.grey[600],
+                          color: Color(0xFFB8D404),
                         ),
                       ),
                       Spacer(),
                       SizedBox(
-                        height: 28,
+                        height: 24,
                         child: ElevatedButton(
-                          onPressed: canAfford && isAvailable 
+                          onPressed: canAfford && isAvailable
                               ? () => _redeemReward(rewardDoc, rewardData)
                               : null,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: canAfford && isAvailable 
-                                ? Colors.green[600] 
+                            backgroundColor: canAfford && isAvailable
+                                ? Color(0xFFD7F520)
                                 : Colors.grey[400],
-                            padding: EdgeInsets.symmetric(horizontal: 12),
+                            padding: EdgeInsets.symmetric(horizontal: 8),
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
+                              borderRadius: BorderRadius.circular(12),
                             ),
+                            elevation: 0,
                           ),
                           child: Text(
-                            !isAvailable ? 'Sold Out' : 
-                            canAfford ? 'Redeem' : 'Need ${(rewardData['pointsCost'] ?? 0) - _userPoints}',
+                            !isAvailable
+                                ? 'Sold Out'
+                                : canAfford
+                                    ? 'Redeem'
+                                    : 'Need ${(rewardData['pointsCost'] ?? 0) - _userPoints}',
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: 9,
                               fontWeight: FontWeight.w600,
-                              color: Colors.white,
+                              color: canAfford && isAvailable
+                                  ? Colors.black87
+                                  : Colors.white,
                             ),
                           ),
                         ),
@@ -315,14 +404,16 @@ class _UserViewRewardsPageState extends State<UserViewRewardsPage> {
       ),
     );
   }
-  void _redeemReward(QueryDocumentSnapshot rewardDoc, Map<String, dynamic> rewardData) async {
+
+  void _redeemReward(
+      QueryDocumentSnapshot rewardDoc, Map<String, dynamic> rewardData) async {
     // Show confirmation dialog
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Row(
           children: [
-            Icon(Icons.card_giftcard, color: Colors.amber[600]),
+            Icon(Icons.card_giftcard, color: Color(0xFFD7F520)),
             SizedBox(width: 12),
             Text("Confirm Redemption"),
           ],
@@ -347,7 +438,7 @@ class _UserViewRewardsPageState extends State<UserViewRewardsPage> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    rewardData['title'] ?? 'Reward',
+                    rewardData['name'] ?? 'Reward',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
@@ -356,14 +447,14 @@ class _UserViewRewardsPageState extends State<UserViewRewardsPage> {
                   SizedBox(height: 8),
                   Row(
                     children: [
-                      Icon(Icons.stars, color: Colors.amber[600], size: 20),
+                      Icon(Icons.stars, color: Color(0xFFD7F520), size: 20),
                       SizedBox(width: 6),
                       Text(
                         '${rewardData['pointsCost'] ?? 0} points',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.w600,
-                          color: Colors.amber[700],
+                          color: Color(0xFFB8D404),
                         ),
                       ),
                     ],
@@ -389,11 +480,11 @@ class _UserViewRewardsPageState extends State<UserViewRewardsPage> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green[600],
+              backgroundColor: Color(0xFFD7F520),
             ),
             child: Text(
               "Redeem",
-              style: TextStyle(color: Colors.white),
+              style: TextStyle(color: Colors.black87),
             ),
           ),
         ],
@@ -437,7 +528,7 @@ class _UserViewRewardsPageState extends State<UserViewRewardsPage> {
         if (success) {
           // Update local points
           await _loadUserPoints();
-          
+
           // Show success dialog
           showDialog(
             context: context,
@@ -501,7 +592,7 @@ class _UserViewRewardsPageState extends State<UserViewRewardsPage> {
       } catch (e) {
         // Close loading dialog if still open
         Navigator.pop(context);
-        
+
         // Show error message
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

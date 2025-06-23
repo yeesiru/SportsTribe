@@ -311,7 +311,8 @@ class _ViewEventPageState extends State<ViewEventPage> {
                       ),
                     )
                   : ListView.builder(
-                      padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                      padding:
+                          EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                       itemCount: participants.length,
                       itemBuilder: (context, index) {
                         final participantId = participants[index];
@@ -321,26 +322,33 @@ class _ViewEventPageState extends State<ViewEventPage> {
                               .doc(participantId)
                               .get(),
                           builder: (context, snapshot) {
-                            if (snapshot.connectionState == ConnectionState.waiting) {
+                            if (snapshot.connectionState ==
+                                ConnectionState.waiting) {
                               return _buildParticipantTile(
                                 name: 'Loading...',
-                                isOrganizer: participantId == eventData['createdBy'],
+                                isOrganizer:
+                                    participantId == eventData['createdBy'],
                                 photoUrl: null,
                               );
                             }
 
-                            if (snapshot.hasError || !snapshot.hasData || !snapshot.data!.exists) {
+                            if (snapshot.hasError ||
+                                !snapshot.hasData ||
+                                !snapshot.data!.exists) {
                               return _buildParticipantTile(
                                 name: 'Unknown User',
-                                isOrganizer: participantId == eventData['createdBy'],
+                                isOrganizer:
+                                    participantId == eventData['createdBy'],
                                 photoUrl: null,
                               );
                             }
 
-                            final userData = snapshot.data!.data() as Map<String, dynamic>;
+                            final userData =
+                                snapshot.data!.data() as Map<String, dynamic>;
                             return _buildParticipantTile(
                               name: userData['name'] ?? 'Unknown User',
-                              isOrganizer: participantId == eventData['createdBy'],
+                              isOrganizer:
+                                  participantId == eventData['createdBy'],
                               photoUrl: userData['photoUrl'],
                               email: userData['email'],
                             );
@@ -407,7 +415,8 @@ class _ViewEventPageState extends State<ViewEventPage> {
                     ),
                     if (isOrganizer)
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
                           color: Colors.blue[100],
                           borderRadius: BorderRadius.circular(12),
@@ -496,8 +505,10 @@ class _ViewEventPageState extends State<ViewEventPage> {
                         offset: Offset(0, 2),
                       ),
                     ],
-                  ),                  child: PopupMenuButton<String>(
-                    icon: Icon(Icons.more_vert, color: Colors.black),                    onSelected: (value) {
+                  ),
+                  child: PopupMenuButton<String>(
+                    icon: Icon(Icons.more_vert, color: Colors.black),
+                    onSelected: (value) {
                       if (value == 'edit') {
                         _editEvent();
                       } else if (value == 'delete') {
@@ -507,7 +518,8 @@ class _ViewEventPageState extends State<ViewEventPage> {
                       } else if (value == 'attendance') {
                         _markAttendance();
                       }
-                    },                    itemBuilder: (context) => [
+                    },
+                    itemBuilder: (context) => [
                       PopupMenuItem(
                         value: 'participants',
                         child: Row(
@@ -522,7 +534,8 @@ class _ViewEventPageState extends State<ViewEventPage> {
                         value: 'attendance',
                         child: Row(
                           children: [
-                            Icon(Icons.how_to_reg, size: 20, color: Colors.orange),
+                            Icon(Icons.how_to_reg,
+                                size: 20, color: Colors.orange),
                             SizedBox(width: 8),
                             Text('Mark Attendance'),
                           ],
@@ -671,7 +684,7 @@ class _ViewEventPageState extends State<ViewEventPage> {
                         height: 1.2,
                       ),
                     ),
-                    SizedBox(height: 8),                    // Participants Status
+                    SizedBox(height: 8), // Participants Status
                     Container(
                       padding:
                           EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -799,7 +812,8 @@ class _ViewEventPageState extends State<ViewEventPage> {
                               height: 1.6,
                             ),
                           ),
-                        ],                      ),
+                        ],
+                      ),
                     ),
 
                     SizedBox(height: 32),
@@ -841,7 +855,8 @@ class _ViewEventPageState extends State<ViewEventPage> {
                                   label: Text('View All'),
                                   style: TextButton.styleFrom(
                                     foregroundColor: Colors.blue[600],
-                                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: 12, vertical: 8),
                                   ),
                                 ),
                               ],
@@ -850,11 +865,13 @@ class _ViewEventPageState extends State<ViewEventPage> {
                             Row(
                               children: [
                                 Container(
-                                  padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 16, vertical: 8),
                                   decoration: BoxDecoration(
                                     color: Colors.white,
                                     borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(color: Colors.blue[300]!),
+                                    border:
+                                        Border.all(color: Colors.blue[300]!),
                                   ),
                                   child: Text(
                                     '${participants.length} / $maxParticipants joined',
@@ -868,7 +885,8 @@ class _ViewEventPageState extends State<ViewEventPage> {
                                 SizedBox(width: 12),
                                 if (participants.length < maxParticipants)
                                   Container(
-                                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 8),
                                     decoration: BoxDecoration(
                                       color: Colors.green[100],
                                       borderRadius: BorderRadius.circular(20),
@@ -884,7 +902,8 @@ class _ViewEventPageState extends State<ViewEventPage> {
                                   )
                                 else
                                   Container(
-                                    padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                    padding: EdgeInsets.symmetric(
+                                        horizontal: 16, vertical: 8),
                                     decoration: BoxDecoration(
                                       color: Colors.orange[100],
                                       borderRadius: BorderRadius.circular(20),
@@ -1118,10 +1137,12 @@ class _ViewEventPageState extends State<ViewEventPage> {
                         CircleAvatar(
                           radius: 16,
                           backgroundColor: Colors.grey[300],
-                          backgroundImage: organizerPhotoUrl != null && organizerPhotoUrl.isNotEmpty
+                          backgroundImage: organizerPhotoUrl != null &&
+                                  organizerPhotoUrl.isNotEmpty
                               ? NetworkImage(organizerPhotoUrl) as ImageProvider
                               : null,
-                          child: organizerPhotoUrl == null || organizerPhotoUrl.isEmpty
+                          child: organizerPhotoUrl == null ||
+                                  organizerPhotoUrl.isEmpty
                               ? Icon(
                                   Icons.person,
                                   size: 16,
@@ -1146,7 +1167,8 @@ class _ViewEventPageState extends State<ViewEventPage> {
                   ],
                 ),
               ),
-            ],          ),
+            ],
+          ),
         );
       },
     );

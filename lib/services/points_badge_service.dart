@@ -21,20 +21,23 @@ class PointsBadgeService {
     try {
       int pointsEarned = ATTENDANCE_POINTS;
       List<String> badgesEarned = [];
-      
+
       // Bonus points for organizers
       if (isOrganizer) {
         pointsEarned += ORGANIZER_BONUS_POINTS;
       }
 
       // Get user's current data
-      DocumentSnapshot userDoc = await _firestore.collection('users').doc(userId).get();
+      DocumentSnapshot userDoc =
+          await _firestore.collection('users').doc(userId).get();
       Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
-      
+
       int currentPoints = userData['points'] ?? 0;
       List<String> currentBadges = List<String>.from(userData['badges'] ?? []);
-      List<String> attendedEvents = List<String>.from(userData['attendedEvents'] ?? []);
-      Map<String, dynamic> statistics = Map<String, dynamic>.from(userData['statistics'] ?? {});
+      List<String> attendedEvents =
+          List<String>.from(userData['attendedEvents'] ?? []);
+      Map<String, dynamic> statistics =
+          Map<String, dynamic>.from(userData['statistics'] ?? {});
 
       // Update attended events
       if (!attendedEvents.contains(eventId)) {
@@ -47,11 +50,11 @@ class PointsBadgeService {
 
       // Check for new badges
       List<Badge> availableBadges = Badge.getDefaultBadges();
-      
+
       for (Badge badge in availableBadges) {
         if (!currentBadges.contains(badge.id)) {
           bool earned = false;
-          
+
           switch (badge.category) {
             case 'participation':
               earned = attendedEvents.length >= badge.requiredEvents;
@@ -62,7 +65,7 @@ class PointsBadgeService {
               }
               break;
           }
-          
+
           if (earned) {
             badgesEarned.add(badge.id);
             currentBadges.add(badge.id);
@@ -119,12 +122,15 @@ class PointsBadgeService {
       );
 
       // Save attendance session
-      await _firestore.collection('attendance_sessions').doc(eventId).set(session.toFirestore());
+      await _firestore
+          .collection('attendance_sessions')
+          .doc(eventId)
+          .set(session.toFirestore());
 
       // Process each participant
       for (String userId in attendance.keys) {
         bool isPresent = attendance[userId] ?? false;
-        
+
         if (isPresent) {
           // Create individual attendance record
           EventAttendance attendanceRecord = EventAttendance(
@@ -136,22 +142,30 @@ class PointsBadgeService {
             markedBy: markerId,
           );
 
-          await _firestore.collection('event_attendance').doc(attendanceRecord.id).set(attendanceRecord.toFirestore());
+          await _firestore
+              .collection('event_attendance')
+              .doc(attendanceRecord.id)
+              .set(attendanceRecord.toFirestore());
 
           // Award rewards
           bool isOrganizer = false;
-          
+
           // Check if user is organizer
           DocumentReference eventRef;
           if (clubId != null) {
-            eventRef = _firestore.collection('club').doc(clubId).collection('events').doc(eventId);
+            eventRef = _firestore
+                .collection('club')
+                .doc(clubId)
+                .collection('events')
+                .doc(eventId);
           } else {
             eventRef = _firestore.collection('events').doc(eventId);
           }
-          
+
           DocumentSnapshot eventDoc = await eventRef.get();
           if (eventDoc.exists) {
-            Map<String, dynamic> eventData = eventDoc.data() as Map<String, dynamic>;
+            Map<String, dynamic> eventData =
+                eventDoc.data() as Map<String, dynamic>;
             isOrganizer = eventData['createdBy'] == userId;
           }
 
@@ -162,11 +176,15 @@ class PointsBadgeService {
       // Mark event as completed
       DocumentReference eventRef;
       if (clubId != null) {
-        eventRef = _firestore.collection('club').doc(clubId).collection('events').doc(eventId);
+        eventRef = _firestore
+            .collection('club')
+            .doc(clubId)
+            .collection('events')
+            .doc(eventId);
       } else {
         eventRef = _firestore.collection('events').doc(eventId);
       }
-      
+
       await eventRef.update({
         'isCompleted': true,
         'attendanceMarked': true,
@@ -190,10 +208,11 @@ class PointsBadgeService {
           .get();
 
       List<DocumentSnapshot> users = usersQuery.docs;
-      
+
       for (int i = 0; i < users.length; i++) {
         if (users[i].id == userId) {
-          Map<String, dynamic> userData = users[i].data() as Map<String, dynamic>;
+          Map<String, dynamic> userData =
+              users[i].data() as Map<String, dynamic>;
           return {
             'rank': i + 1,
             'points': userData['points'] ?? 0,
@@ -221,7 +240,8 @@ class PointsBadgeService {
   }
 
   // Get leaderboard data
-  static Future<List<Map<String, dynamic>>> getLeaderboard({int limit = 50}) async {
+  static Future<List<Map<String, dynamic>>> getLeaderboard(
+      {int limit = 50}) async {
     try {
       QuerySnapshot usersQuery = await _firestore
           .collection('users')
@@ -230,11 +250,11 @@ class PointsBadgeService {
           .get();
 
       List<Map<String, dynamic>> leaderboard = [];
-      
+
       for (int i = 0; i < usersQuery.docs.length; i++) {
         DocumentSnapshot doc = usersQuery.docs[i];
         Map<String, dynamic> userData = doc.data() as Map<String, dynamic>;
-        
+
         leaderboard.add({
           'rank': i + 1,
           'userId': doc.id,
@@ -257,9 +277,10 @@ class PointsBadgeService {
   static Future<bool> redeemReward(String rewardId, int pointsCost) async {
     try {
       String userId = _auth.currentUser!.uid;
-      
+
       // Check user's points
-      DocumentSnapshot userDoc = await _firestore.collection('users').doc(userId).get();
+      DocumentSnapshot userDoc =
+          await _firestore.collection('users').doc(userId).get();
       Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
       int currentPoints = userData['points'] ?? 0;
 
@@ -282,7 +303,8 @@ class PointsBadgeService {
       });
 
       // Update reward redeemed count
-      DocumentReference rewardRef = _firestore.collection('rewards').doc(rewardId);
+      DocumentReference rewardRef =
+          _firestore.collection('rewards').doc(rewardId);
       await rewardRef.update({
         'redeemedCount': FieldValue.increment(1),
       });
@@ -307,11 +329,13 @@ class PointsBadgeService {
   // Get user's badge progress
   static Future<Map<String, dynamic>> getBadgeProgress(String userId) async {
     try {
-      DocumentSnapshot userDoc = await _firestore.collection('users').doc(userId).get();
+      DocumentSnapshot userDoc =
+          await _firestore.collection('users').doc(userId).get();
       Map<String, dynamic> userData = userDoc.data() as Map<String, dynamic>;
-      
+
       List<String> userBadges = List<String>.from(userData['badges'] ?? []);
-      List<String> attendedEvents = List<String>.from(userData['attendedEvents'] ?? []);
+      List<String> attendedEvents =
+          List<String>.from(userData['attendedEvents'] ?? []);
       int eventsAttended = attendedEvents.length;
 
       List<Badge> allBadges = Badge.getDefaultBadges();
@@ -320,9 +344,9 @@ class PointsBadgeService {
       for (Badge badge in allBadges) {
         bool earned = userBadges.contains(badge.id);
         double progressPercent = 0.0;
-        
+
         if (badge.category == 'participation') {
-          progressPercent = badge.requiredEvents > 0 
+          progressPercent = badge.requiredEvents > 0
               ? (eventsAttended / badge.requiredEvents).clamp(0.0, 1.0)
               : (earned ? 1.0 : 0.0);
         } else if (badge.category == 'organizing') {

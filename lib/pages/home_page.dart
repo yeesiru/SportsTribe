@@ -30,11 +30,12 @@ class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
   late int _currentTabIndex; // 0 = home, 1 = chat, 2 = leaderboard, 3 = profile
 
-@override
+  @override
   void initState() {
     super.initState();
     _currentTabIndex = widget.initialTabIndex;
   }
+
   // Get user data stream for real-time updates
   Stream<DocumentSnapshot> getUserDataStream() {
     return FirebaseFirestore.instance
@@ -42,7 +43,7 @@ class _HomePageState extends State<HomePage> {
         .doc(user.uid)
         .snapshots();
   }
-  
+
   Stream<QuerySnapshot> getUserRelatedClubs() {
     final uid = user.uid;
     return FirebaseFirestore.instance
@@ -50,7 +51,6 @@ class _HomePageState extends State<HomePage> {
         .where('members', arrayContains: uid)
         .snapshots();
   }
-
 
   // Fetch all public and user clubs
 //   Future<List<String>> _getRelevantClubIds() async {
@@ -67,7 +67,7 @@ class _HomePageState extends State<HomePage> {
 //     final publicClubIds = publicClubsSnap.docs.map((doc) => doc.id).toSet();
 //     return {...userClubIds, ...publicClubIds}.toList();
 //   }
-  
+
   // Fetch only user's joined clubs (not public clubs)
   Future<List<String>> _getRelevantClubIds() async {
     final uid = user.uid;
@@ -187,7 +187,7 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-    Widget _buildEventCard(Map<String, dynamic> data, bool isUserEvent) {
+  Widget _buildEventCard(Map<String, dynamic> data, bool isUserEvent) {
     // Fix the type cast error - handle both int and List for participants
     final dynamic participantsData = data['participants'];
     final List<dynamic> participants = participantsData is List
@@ -651,7 +651,8 @@ class _HomePageState extends State<HomePage> {
             ),
           ),
         ),
-      ],    );
+      ],
+    );
   }
 
   String _formatDate(DateTime date) {
@@ -701,6 +702,7 @@ class _HomePageState extends State<HomePage> {
       );
     }
   }
+
   void _editEvent(Map<String, dynamic> eventData) {
     // Navigate to edit event page
     Navigator.push(
@@ -775,7 +777,8 @@ class _HomePageState extends State<HomePage> {
           eventData: eventData,
           clubId: eventData['type'] == 'club' ? eventData['clubId'] : null,
         ),
-      ),    );
+      ),
+    );
   }
 
   void _onItemTapped(int index) {
@@ -799,7 +802,8 @@ class _HomePageState extends State<HomePage> {
           context,
           MaterialPageRoute(builder: (context) => ChatPage(initialTabIndex: 1)),
         );
-        break;      case 2: // Leaderboard
+        break;
+      case 2: // Leaderboard
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -817,20 +821,23 @@ class _HomePageState extends State<HomePage> {
   }
 
   @override
-  Widget build(BuildContext context) {    return Scaffold(
+  Widget build(BuildContext context) {
+    return Scaffold(
       backgroundColor: Colors.grey[100],
-      floatingActionButton: _selectedIndex == 0 ? FloatingActionButton(
-        onPressed: () {
-          // Only show on Events tab - Navigate to Create Event page
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => CreateEventPage()),
-          );
-        },
-        backgroundColor: Colors.black,
-        child: Icon(Icons.add, color: Colors.white),
-        tooltip: 'Create Event',
-      ) : null, // Hide floating button on Posts tab
+      floatingActionButton: _selectedIndex == 0
+          ? FloatingActionButton(
+              onPressed: () {
+                // Only show on Events tab - Navigate to Create Event page
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => CreateEventPage()),
+                );
+              },
+              backgroundColor: Colors.black,
+              child: Icon(Icons.add, color: Colors.white),
+              tooltip: 'Create Event',
+            )
+          : null, // Hide floating button on Posts tab
       body: Column(
         children: [
           Container(
@@ -843,7 +850,8 @@ class _HomePageState extends State<HomePage> {
               ),
             ),
             child: Column(
-              children: [                Row(
+              children: [
+                Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     StreamBuilder<DocumentSnapshot>(
@@ -851,7 +859,8 @@ class _HomePageState extends State<HomePage> {
                       builder: (context, snapshot) {
                         Map<String, dynamic>? userData;
                         if (snapshot.hasData && snapshot.data!.exists) {
-                          userData = snapshot.data!.data() as Map<String, dynamic>?;
+                          userData =
+                              snapshot.data!.data() as Map<String, dynamic>?;
                         }
 
                         return Row(
@@ -929,21 +938,36 @@ class _HomePageState extends State<HomePage> {
                 SizedBox(height: 10),
                 Align(
                   alignment: Alignment.centerLeft,
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 15, vertical: 5),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.3),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.star, color: Colors.amber, size: 16),
-                        SizedBox(width: 5),
-                        Text('520 pts',
-                            style: TextStyle(fontWeight: FontWeight.bold)),
-                      ],
-                    ),
+                  child: StreamBuilder<DocumentSnapshot>(
+                    stream: getUserDataStream(),
+                    builder: (context, snapshot) {
+                      Map<String, dynamic>? userData;
+                      int userPoints = 0;
+
+                      if (snapshot.hasData && snapshot.data!.exists) {
+                        userData =
+                            snapshot.data!.data() as Map<String, dynamic>?;
+                        userPoints = userData?['points'] ?? 0;
+                      }
+
+                      return Container(
+                        padding:
+                            EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.star, color: Colors.amber, size: 16),
+                            SizedBox(width: 5),
+                            Text('$userPoints pts',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ),
                 SizedBox(height: 20),
@@ -1100,7 +1124,9 @@ class _HomePageState extends State<HomePage> {
                             MaterialPageRoute(
                               builder: (context) => MyClubsPage(),
                             ),
-                          );                        },                        child: Icon(Icons.chevron_right,
+                          );
+                        },
+                        child: Icon(Icons.chevron_right,
                             size: 30, color: Colors.grey[600]),
                       ),
                     ],
@@ -1216,9 +1242,9 @@ class _HomePageState extends State<HomePage> {
       {double radius = 20}) {
     return CircleAvatar(
       radius: radius,
-      backgroundImage: userData != null && 
-          userData['photoUrl'] != null && 
-          userData['photoUrl'].toString().trim().isNotEmpty
+      backgroundImage: userData != null &&
+              userData['photoUrl'] != null &&
+              userData['photoUrl'].toString().trim().isNotEmpty
           ? NetworkImage(userData['photoUrl'])
           : const AssetImage('assets/images/profile.jpg') as ImageProvider,
     );
@@ -1595,7 +1621,8 @@ class _HomePageState extends State<HomePage> {
           );
         }).toList(),
       ),
-    );  }
+    );
+  }
 
   Widget _buildActionButtons(int likesCount, int commentsCount, bool isEvent) {
     return Padding(
@@ -1711,6 +1738,7 @@ class _HomePageState extends State<HomePage> {
       return '${date.day}/${date.month}/${date.year}';
     }
   }
+
   Color _getCategoryColor(String category) {
     switch (category) {
       case 'Announcement':

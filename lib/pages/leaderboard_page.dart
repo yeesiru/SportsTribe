@@ -8,7 +8,7 @@ import '../services/points_badge_service.dart';
 
 class LeaderboardPage extends StatefulWidget {
   final int initialTabIndex;
-  
+
   const LeaderboardPage({
     super.key,
     this.initialTabIndex = 2,
@@ -20,7 +20,7 @@ class LeaderboardPage extends StatefulWidget {
 
 class _LeaderboardPageState extends State<LeaderboardPage> {
   final user = FirebaseAuth.instance.currentUser!;
-  late int _currentTabIndex; 
+  late int _currentTabIndex;
   List<Map<String, dynamic>> _leaderboardData = [];
   bool _isLoading = true;
   Map<String, dynamic> _userRanking = {};
@@ -34,9 +34,11 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
 
   Future<void> _loadLeaderboard() async {
     try {
-      List<Map<String, dynamic>> leaderboard = await PointsBadgeService.getLeaderboard(limit: 100);
-      Map<String, dynamic> userRanking = await PointsBadgeService.getUserRanking(user.uid);
-      
+      List<Map<String, dynamic>> leaderboard =
+          await PointsBadgeService.getLeaderboard(limit: 100);
+      Map<String, dynamic> userRanking =
+          await PointsBadgeService.getUserRanking(user.uid);
+
       setState(() {
         _leaderboardData = leaderboard;
         _userRanking = userRanking;
@@ -58,31 +60,34 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
   }
 
   void _navigateToPage(int index) {
-    if (index == _currentTabIndex) return; 
-    
+    if (index == _currentTabIndex) return;
+
     setState(() {
       _currentTabIndex = index;
     });
-    
+
     switch (index) {
-      case 0: 
+      case 0:
         Navigator.pushReplacement(
-          context, 
-          MaterialPageRoute(builder: (context) => const HomePage(initialTabIndex: 0)),
+          context,
+          MaterialPageRoute(
+              builder: (context) => const HomePage(initialTabIndex: 0)),
         );
         break;
-      case 1: 
+      case 1:
         Navigator.pushReplacement(
-          context, 
-          MaterialPageRoute(builder: (context) => const ChatPage(initialTabIndex: 1)),
+          context,
+          MaterialPageRoute(
+              builder: (context) => const ChatPage(initialTabIndex: 1)),
         );
         break;
-      case 2: 
+      case 2:
         break;
-      case 3: 
+      case 3:
         Navigator.pushReplacement(
-          context, 
-          MaterialPageRoute(builder: (context) => const ProfilePage(initialTabIndex: 3)),
+          context,
+          MaterialPageRoute(
+              builder: (context) => const ProfilePage(initialTabIndex: 3)),
         );
         break;
     }
@@ -92,7 +97,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
     if (rank <= 3) {
       Color medalColor;
       IconData medalIcon;
-      
+
       switch (rank) {
         case 1:
           medalColor = Colors.amber;
@@ -110,7 +115,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
           medalColor = Colors.grey;
           medalIcon = Icons.circle;
       }
-      
+
       return Icon(
         medalIcon,
         color: medalColor,
@@ -207,7 +212,7 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                             ),
                           ),
                           Text(
-                            _isLoading 
+                            _isLoading
                                 ? 'Loading...'
                                 : 'Your rank: #${_userRanking['rank'] ?? 'N/A'} with ${_userRanking['points'] ?? 0} points',
                             style: TextStyle(
@@ -243,7 +248,8 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                       : Column(
                           children: [
                             Padding(
-                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 15),
                               child: Row(
                                 children: [
                                   const SizedBox(width: 40),
@@ -276,16 +282,17 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                                 ],
                               ),
                             ),
-                            
+
                             // Divider
                             const Divider(height: 1),
-                            
+
                             // Leaderboard list
                             Expanded(
                               child: _leaderboardData.isEmpty
                                   ? Center(
                                       child: Column(
-                                        mainAxisAlignment: MainAxisAlignment.center,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
                                         children: [
                                           Icon(
                                             Icons.leaderboard,
@@ -316,57 +323,90 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
                                       child: ListView.builder(
                                         itemCount: _leaderboardData.length,
                                         itemBuilder: (context, index) {
-                                          final userData = _leaderboardData[index];
-                                          final isCurrentUser = userData['userId'] == user.uid;
-                                          
+                                          final userData =
+                                              _leaderboardData[index];
+                                          final isCurrentUser =
+                                              userData['userId'] == user.uid;
+
                                           return Container(
-                                            color: isCurrentUser ? Colors.blue[50] : null,
-                                            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
+                                            color: isCurrentUser
+                                                ? Colors.blue[50]
+                                                : null,
+                                            padding: const EdgeInsets.symmetric(
+                                                vertical: 12, horizontal: 20),
                                             child: Row(
                                               children: [
                                                 SizedBox(
                                                   width: 40,
                                                   child: Center(
-                                                    child: _buildRankWidget(userData['rank']),
+                                                    child: _buildRankWidget(
+                                                        userData['rank']),
                                                   ),
                                                 ),
                                                 CircleAvatar(
-                                                  backgroundImage: userData['photoUrl'] != null && userData['photoUrl'].isNotEmpty
-                                                      ? NetworkImage(userData['photoUrl']) as ImageProvider
-                                                      : const AssetImage('assets/images/profile.jpg'),
+                                                  backgroundImage: userData[
+                                                                  'photoUrl'] !=
+                                                              null &&
+                                                          userData['photoUrl']
+                                                              .isNotEmpty
+                                                      ? NetworkImage(userData[
+                                                              'photoUrl'])
+                                                          as ImageProvider
+                                                      : const AssetImage(
+                                                          'assets/images/profile.jpg'),
                                                   radius: 18,
                                                 ),
                                                 const SizedBox(width: 12),
                                                 Expanded(
                                                   child: Column(
-                                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                                    crossAxisAlignment:
+                                                        CrossAxisAlignment
+                                                            .start,
                                                     children: [
                                                       Text(
-                                                        isCurrentUser ? 'You' : userData['name'],
+                                                        isCurrentUser
+                                                            ? 'You'
+                                                            : userData['name'],
                                                         style: TextStyle(
-                                                          fontWeight: isCurrentUser ? FontWeight.bold : FontWeight.normal,
-                                                          color: isCurrentUser ? Colors.blue[800] : Colors.black87,
+                                                          fontWeight:
+                                                              isCurrentUser
+                                                                  ? FontWeight
+                                                                      .bold
+                                                                  : FontWeight
+                                                                      .normal,
+                                                          color: isCurrentUser
+                                                              ? Colors.blue[800]
+                                                              : Colors.black87,
                                                         ),
                                                       ),
-                                                      if (userData['badges'] != null && userData['badges'].isNotEmpty)
+                                                      if (userData['badges'] !=
+                                                              null &&
+                                                          userData['badges']
+                                                              .isNotEmpty)
                                                         Text(
                                                           '${userData['badges'].length} badges',
                                                           style: TextStyle(
                                                             fontSize: 12,
-                                                            color: Colors.grey[600],
+                                                            color: Colors
+                                                                .grey[600],
                                                           ),
                                                         ),
                                                     ],
                                                   ),
                                                 ),
                                                 Column(
-                                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.end,
                                                   children: [
                                                     Text(
-                                                      userData['points'].toString(),
+                                                      userData['points']
+                                                          .toString(),
                                                       style: TextStyle(
-                                                        fontWeight: FontWeight.bold,
-                                                        color: isCurrentUser ? Colors.blue[800] : Colors.black87,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: isCurrentUser
+                                                            ? Colors.blue[800]
+                                                            : Colors.black87,
                                                         fontSize: 16,
                                                       ),
                                                     ),
@@ -394,7 +434,6 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
           ),
         ),
       ),
-      
       bottomNavigationBar: Container(
         margin: const EdgeInsets.all(15),
         decoration: BoxDecoration(
@@ -407,33 +446,29 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
               _buildNavItem(
-                icon: Icons.group, 
-                isActive: _currentTabIndex == 0,
-                onTap: () {
-                  _navigateToPage(0);
-                }
-              ),
+                  icon: Icons.group,
+                  isActive: _currentTabIndex == 0,
+                  onTap: () {
+                    _navigateToPage(0);
+                  }),
               _buildNavItem(
-                icon: Icons.chat_bubble_outline, 
-                isActive: _currentTabIndex == 1,
-                onTap: () {
-                  _navigateToPage(1);
-                }
-              ),
+                  icon: Icons.chat_bubble_outline,
+                  isActive: _currentTabIndex == 1,
+                  onTap: () {
+                    _navigateToPage(1);
+                  }),
               _buildNavItem(
-                icon: Icons.rocket, 
-                isActive: _currentTabIndex == 2,
-                onTap: () {
-                  // Already on leaderboard page
-                }
-              ),
+                  icon: Icons.rocket,
+                  isActive: _currentTabIndex == 2,
+                  onTap: () {
+                    // Already on leaderboard page
+                  }),
               _buildNavItem(
-                icon: Icons.person_outline, 
-                isActive: _currentTabIndex == 3,
-                onTap: () {
-                  _navigateToPage(3);
-                }
-              ),
+                  icon: Icons.person_outline,
+                  isActive: _currentTabIndex == 3,
+                  onTap: () {
+                    _navigateToPage(3);
+                  }),
             ],
           ),
         ),

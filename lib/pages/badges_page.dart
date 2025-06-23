@@ -23,7 +23,8 @@ class _BadgesPageState extends State<BadgesPage> {
 
   Future<void> _loadBadgeProgress() async {
     try {
-      Map<String, dynamic> progress = await PointsBadgeService.getBadgeProgress(user.uid);
+      Map<String, dynamic> progress =
+          await PointsBadgeService.getBadgeProgress(user.uid);
       setState(() {
         _badgeProgress = progress;
         _isLoading = false;
@@ -35,6 +36,7 @@ class _BadgesPageState extends State<BadgesPage> {
       });
     }
   }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -55,11 +57,13 @@ class _BadgesPageState extends State<BadgesPage> {
           icon: Icon(Icons.arrow_back_ios, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
-      ),      body: _isLoading
+      ),
+      body: _isLoading
           ? Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                children: [                  Container(
+                children: [
+                  Container(
                     width: 60,
                     height: 60,
                     decoration: BoxDecoration(
@@ -88,133 +92,141 @@ class _BadgesPageState extends State<BadgesPage> {
               ),
             )
           : RefreshIndicator(
-              onRefresh: _loadBadgeProgress,                child: SingleChildScrollView(
-                  physics: AlwaysScrollableScrollPhysics(),
-                  padding: EdgeInsets.fromLTRB(20, 20, 20, 30),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Stats Header
-                      Container(
-                        width: double.infinity,
-                        padding: EdgeInsets.all(24),                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Color(0xFFD7F520),
-                              Color(0xFFB8D404),
-                            ],
-                          ),
-                          borderRadius: BorderRadius.circular(24),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Color(0xFFD7F520).withOpacity(0.4),
-                              blurRadius: 20,
-                              offset: Offset(0, 10),
-                            ),
+              onRefresh: _loadBadgeProgress,
+              child: SingleChildScrollView(
+                physics: AlwaysScrollableScrollPhysics(),
+                padding: EdgeInsets.fromLTRB(20, 20, 20, 30),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Stats Header
+                    Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.all(24),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            Color(0xFFD7F520),
+                            Color(0xFFB8D404),
                           ],
                         ),
-                        child: Column(
-                          children: [
-                            Text(                              'Achievement Progress',
-                              style: TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.w600,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            SizedBox(height: 20),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceAround,
-                              children: [                                _buildStatItem(
-                                  'Earned',
-                                  '${_badgeProgress['earnedBadges'] ?? 0}',
-                                  Icons.emoji_events,
-                                ),
-                                Container(
-                                  width: 1,
-                                  height: 50,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [
-                                        Colors.black.withOpacity(0.1),
-                                        Colors.black.withOpacity(0.3),
-                                        Colors.black.withOpacity(0.1),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                _buildStatItem(
-                                  'Total',
-                                  '${_badgeProgress['totalBadges'] ?? 0}',
-                                  Icons.military_tech,
-                                ),
-                                Container(
-                                  width: 1,
-                                  height: 50,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [
-                                        Colors.black.withOpacity(0.1),
-                                        Colors.black.withOpacity(0.3),
-                                        Colors.black.withOpacity(0.1),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                _buildStatItem(
-                                  'Progress',
-                                  '${((_badgeProgress['earnedBadges'] ?? 0) / (_badgeProgress['totalBadges'] ?? 1) * 100).toInt()}%',
-                                  Icons.trending_up,
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      SizedBox(height: 32),
-
-                      // Section Title
-                      Row(
-                        children: [
-                          Container(
-                            width: 4,
-                            height: 24,                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [Color(0xFFD7F520), Color(0xFFB8D404)],
-                              ),
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                          SizedBox(width: 12),
-                          Text(
-                            'All Badges',
-                            style: TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w700,
-                              color: Color(0xFF1A202C),
-                            ),
+                        borderRadius: BorderRadius.circular(24),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Color(0xFFD7F520).withOpacity(0.4),
+                            blurRadius: 20,
+                            offset: Offset(0, 10),
                           ),
                         ],
                       ),
-                      SizedBox(height: 20),                      if (_badgeProgress['progress'] != null)                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: NeverScrollableScrollPhysics(),
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            childAspectRatio: 0.7, // Reduced to give more height
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
+                      child: Column(
+                        children: [
+                          Text(
+                            'Achievement Progress',
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
                           ),
-                          itemCount: _badgeProgress['progress'].length,
-                          itemBuilder: (context, index) {
-                          Map<String, dynamic> badgeData = _badgeProgress['progress'][index];
+                          SizedBox(height: 20),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceAround,
+                            children: [
+                              _buildStatItem(
+                                'Earned',
+                                '${_badgeProgress['earnedBadges'] ?? 0}',
+                                Icons.emoji_events,
+                              ),
+                              Container(
+                                width: 1,
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.black.withOpacity(0.1),
+                                      Colors.black.withOpacity(0.3),
+                                      Colors.black.withOpacity(0.1),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              _buildStatItem(
+                                'Total',
+                                '${_badgeProgress['totalBadges'] ?? 0}',
+                                Icons.military_tech,
+                              ),
+                              Container(
+                                width: 1,
+                                height: 50,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topCenter,
+                                    end: Alignment.bottomCenter,
+                                    colors: [
+                                      Colors.black.withOpacity(0.1),
+                                      Colors.black.withOpacity(0.3),
+                                      Colors.black.withOpacity(0.1),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                              _buildStatItem(
+                                'Progress',
+                                '${((_badgeProgress['earnedBadges'] ?? 0) / (_badgeProgress['totalBadges'] ?? 1) * 100).toInt()}%',
+                                Icons.trending_up,
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    SizedBox(height: 32),
+
+                    // Section Title
+                    Row(
+                      children: [
+                        Container(
+                          width: 4,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [Color(0xFFD7F520), Color(0xFFB8D404)],
+                            ),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        Text(
+                          'All Badges',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF1A202C),
+                          ),
+                        ),
+                      ],
+                    ),
+                    SizedBox(height: 20),
+                    if (_badgeProgress['progress'] != null)
+                      GridView.builder(
+                        shrinkWrap: true,
+                        physics: NeverScrollableScrollPhysics(),
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 2,
+                          childAspectRatio: 0.7, // Reduced to give more height
+                          crossAxisSpacing: 12,
+                          mainAxisSpacing: 12,
+                        ),
+                        itemCount: _badgeProgress['progress'].length,
+                        itemBuilder: (context, index) {
+                          Map<String, dynamic> badgeData =
+                              _badgeProgress['progress'][index];
                           BadgeModel.Badge badge = badgeData['badge'];
                           bool earned = badgeData['earned'];
                           double progress = badgeData['progress'];
@@ -229,59 +241,62 @@ class _BadgesPageState extends State<BadgesPage> {
                             requiredCount,
                           );
                         },
-                      )                      else
-                        Container(
-                          padding: EdgeInsets.all(40),
-                          child: Center(
-                            child: Column(
-                              children: [
-                                Container(
-                                  width: 120,
-                                  height: 120,
-                                  decoration: BoxDecoration(
-                                    gradient: LinearGradient(
-                                      colors: [
-                                        Colors.grey[200]!,
-                                        Colors.grey[100]!,
-                                      ],
-                                    ),
-                                    borderRadius: BorderRadius.circular(60),
+                      )
+                    else
+                      Container(
+                        padding: EdgeInsets.all(40),
+                        child: Center(
+                          child: Column(
+                            children: [
+                              Container(
+                                width: 120,
+                                height: 120,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [
+                                      Colors.grey[200]!,
+                                      Colors.grey[100]!,
+                                    ],
                                   ),
-                                  child: Icon(
-                                    Icons.emoji_events_outlined,
-                                    size: 60,
-                                    color: Colors.grey[400],
-                                  ),
+                                  borderRadius: BorderRadius.circular(60),
                                 ),
-                                SizedBox(height: 24),
-                                Text(
-                                  'No badges available yet',
-                                  style: TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w600,
-                                    color: Colors.grey[700],
-                                  ),
+                                child: Icon(
+                                  Icons.emoji_events_outlined,
+                                  size: 60,
+                                  color: Colors.grey[400],
                                 ),
-                                SizedBox(height: 8),
-                                Text(
-                                  'Start attending events to earn your first badge!',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.grey[500],
-                                    height: 1.4,
-                                  ),
+                              ),
+                              SizedBox(height: 24),
+                              Text(
+                                'No badges available yet',
+                                style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.grey[700],
                                 ),
-                              ],
-                            ),
+                              ),
+                              SizedBox(height: 8),
+                              Text(
+                                'Start attending events to earn your first badge!',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[500],
+                                  height: 1.4,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
+                      ),
                   ],
                 ),
               ),
             ),
     );
-  }  Widget _buildStatItem(String label, String value, IconData icon) {
+  }
+
+  Widget _buildStatItem(String label, String value, IconData icon) {
     return Column(
       children: [
         Container(
@@ -316,7 +331,9 @@ class _BadgesPageState extends State<BadgesPage> {
         ),
       ],
     );
-  }Widget _buildBadgeCard(
+  }
+
+  Widget _buildBadgeCard(
     BadgeModel.Badge badge,
     bool earned,
     double progress,
@@ -327,15 +344,14 @@ class _BadgesPageState extends State<BadgesPage> {
       duration: Duration(milliseconds: 300),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),        border: Border.all(
-          color: earned 
-              ? Color(0xFFD7F520) 
-              : Color(0xFFE5E7EB),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: earned ? Color(0xFFD7F520) : Color(0xFFE5E7EB),
           width: earned ? 2 : 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: earned 
+            color: earned
                 ? Color(0xFFD7F520).withOpacity(0.3)
                 : Color(0xFF1F2937).withOpacity(0.08),
             blurRadius: earned ? 12 : 8,
@@ -353,20 +369,24 @@ class _BadgesPageState extends State<BadgesPage> {
             Container(
               width: 60,
               height: 60,
-              decoration: BoxDecoration(                gradient: earned 
+              decoration: BoxDecoration(
+                gradient: earned
                     ? LinearGradient(
                         colors: [Color(0xFFD7F520), Color(0xFFB8D404)],
                       )
                     : LinearGradient(
                         colors: [Color(0xFFF3F4F6), Color(0xFFE5E7EB)],
                       ),
-                shape: BoxShape.circle,                boxShadow: earned ? [
-                  BoxShadow(
-                    color: Color(0xFFD7F520).withOpacity(0.4),
-                    blurRadius: 8,
-                    offset: Offset(0, 3),
-                  ),
-                ] : [],
+                shape: BoxShape.circle,
+                boxShadow: earned
+                    ? [
+                        BoxShadow(
+                          color: Color(0xFFD7F520).withOpacity(0.4),
+                          blurRadius: 8,
+                          offset: Offset(0, 3),
+                        ),
+                      ]
+                    : [],
               ),
               child: Center(
                 child: Text(
@@ -419,7 +439,8 @@ class _BadgesPageState extends State<BadgesPage> {
             if (earned)
               Container(
                 padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(                  gradient: LinearGradient(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
                     colors: [Color(0xFFD7F520), Color(0xFFB8D404)],
                   ),
                   borderRadius: BorderRadius.circular(16),
@@ -433,12 +454,14 @@ class _BadgesPageState extends State<BadgesPage> {
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
-                  children: [                    Icon(
+                  children: [
+                    Icon(
                       Icons.check_circle,
                       size: 14,
                       color: Colors.black87,
                     ),
-                    SizedBox(width: 4),                    Text(
+                    SizedBox(width: 4),
+                    Text(
                       'Earned',
                       style: TextStyle(
                         fontSize: 11,
@@ -466,7 +489,8 @@ class _BadgesPageState extends State<BadgesPage> {
                         FractionallySizedBox(
                           alignment: Alignment.centerLeft,
                           widthFactor: progress,
-                          child: Container(                            decoration: BoxDecoration(
+                          child: Container(
+                            decoration: BoxDecoration(
                               gradient: LinearGradient(
                                 colors: [Color(0xFFD7F520), Color(0xFFB8D404)],
                               ),

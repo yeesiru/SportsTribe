@@ -46,7 +46,8 @@ class AppUser {
       sportsList:
           (map['sportsList'] as List?)?.map((e) => e.toString()).toList() ?? [],
       communityList:
-          (map['communityList'] as List?)?.map((e) => e.toString()).toList() ?? [],
+          (map['communityList'] as List?)?.map((e) => e.toString()).toList() ??
+              [],
       eventList:
           (map['eventList'] as List?)?.map((e) => e.toString()).toList() ?? [],
       role: map['role'] ?? 'member',
@@ -55,7 +56,9 @@ class AppUser {
           : null,
       points: map['points'] ?? 0,
       badges: (map['badges'] as List?)?.map((e) => e.toString()).toList() ?? [],
-      attendedEvents: (map['attendedEvents'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      attendedEvents:
+          (map['attendedEvents'] as List?)?.map((e) => e.toString()).toList() ??
+              [],
       statistics: map['statistics'] ?? {},
     );
   }

@@ -23,7 +23,7 @@ class Badge {
 
   factory Badge.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-    
+
     return Badge(
       id: doc.id,
       name: data['name'] ?? '',

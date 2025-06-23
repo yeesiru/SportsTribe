@@ -181,7 +181,8 @@ class _ProfilePageState extends State<ProfilePage> {
           context,
           MaterialPageRoute(builder: (context) => ChatPage(initialTabIndex: 1)),
         );
-        break;      case 2: // Leaderboard
+        break;
+      case 2: // Leaderboard
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
@@ -704,7 +705,8 @@ class _ProfilePageState extends State<ProfilePage> {
                       label: 'Email',
                       value: email,
                       onTap: () {}, // Email is not editable here
-                    ),                    _buildProfileItem(
+                    ),
+                    _buildProfileItem(
                       icon: Icons.sports_volleyball,
                       label: 'My Sports',
                       value: sportsList.isNotEmpty
@@ -719,7 +721,7 @@ class _ProfilePageState extends State<ProfilePage> {
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 16.0),
                       child: Divider(thickness: 1, color: Colors.grey[300]),
-                    ),                    // Points and Rewards Section
+                    ), // Points and Rewards Section
                     _buildNavigationItem(
                       icon: Icons.emoji_events,
                       label: 'My Badges',
@@ -738,7 +740,8 @@ class _ProfilePageState extends State<ProfilePage> {
                       onTap: () {
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => UserViewRewardsPage()),
+                          MaterialPageRoute(
+                              builder: (context) => UserViewRewardsPage()),
                         );
                       },
                     ),

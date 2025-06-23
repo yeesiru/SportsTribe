@@ -23,7 +23,7 @@ class EventAttendance {
 
   factory EventAttendance.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-    
+
     return EventAttendance(
       id: doc.id,
       eventId: data['eventId'] ?? '',
@@ -32,7 +32,9 @@ class EventAttendance {
       markedAt: (data['markedAt'] as Timestamp).toDate(),
       markedBy: data['markedBy'] ?? '',
       pointsEarned: data['pointsEarned'] ?? 0,
-      badgesEarned: (data['badgesEarned'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      badgesEarned:
+          (data['badgesEarned'] as List?)?.map((e) => e.toString()).toList() ??
+              [],
     );
   }
 
@@ -70,11 +72,13 @@ class AttendanceSession {
 
   factory AttendanceSession.fromFirestore(DocumentSnapshot doc) {
     Map<String, dynamic> data = doc.data() as Map<String, dynamic>;
-    
+
     return AttendanceSession(
       eventId: doc.id,
       eventTitle: data['eventTitle'] ?? '',
-      participants: (data['participants'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      participants:
+          (data['participants'] as List?)?.map((e) => e.toString()).toList() ??
+              [],
       attendance: Map<String, bool>.from(data['attendance'] ?? {}),
       isCompleted: data['isCompleted'] ?? false,
       createdAt: (data['createdAt'] as Timestamp).toDate(),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:map_project/pages/edit_event_page.dart';
+import 'package:map_project/pages/attendance_page.dart';
 
 class ViewEventPage extends StatefulWidget {
   final String eventId;
@@ -204,6 +205,20 @@ class _ViewEventPageState extends State<ViewEventPage> {
         );
       }
     }
+  }
+
+  Future<void> _markAttendance() async {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AttendancePage(
+          eventId: widget.eventId,
+          eventTitle: eventData['title'] ?? 'Event',
+          participants: participants.cast<String>(),
+          clubId: widget.clubId,
+        ),
+      ),
+    );
   }
 
   Future<void> _showParticipants() async {
@@ -482,17 +497,17 @@ class _ViewEventPageState extends State<ViewEventPage> {
                       ),
                     ],
                   ),                  child: PopupMenuButton<String>(
-                    icon: Icon(Icons.more_vert, color: Colors.black),
-                    onSelected: (value) {
+                    icon: Icon(Icons.more_vert, color: Colors.black),                    onSelected: (value) {
                       if (value == 'edit') {
                         _editEvent();
                       } else if (value == 'delete') {
                         _deleteEvent();
                       } else if (value == 'participants') {
                         _showParticipants();
+                      } else if (value == 'attendance') {
+                        _markAttendance();
                       }
-                    },
-                    itemBuilder: (context) => [
+                    },                    itemBuilder: (context) => [
                       PopupMenuItem(
                         value: 'participants',
                         child: Row(
@@ -500,6 +515,16 @@ class _ViewEventPageState extends State<ViewEventPage> {
                             Icon(Icons.people, size: 20, color: Colors.green),
                             SizedBox(width: 8),
                             Text('View Participants'),
+                          ],
+                        ),
+                      ),
+                      PopupMenuItem(
+                        value: 'attendance',
+                        child: Row(
+                          children: [
+                            Icon(Icons.how_to_reg, size: 20, color: Colors.orange),
+                            SizedBox(width: 8),
+                            Text('Mark Attendance'),
                           ],
                         ),
                       ),

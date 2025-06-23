@@ -799,12 +799,11 @@ class _HomePageState extends State<HomePage> {
           context,
           MaterialPageRoute(builder: (context) => ChatPage(initialTabIndex: 1)),
         );
-        break;
-      case 2: // Leaderboard
+        break;      case 2: // Leaderboard
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-              builder: (context) => LeaderboardPage(initialTabIndex: 2)),
+              builder: (context) => const LeaderboardPage(initialTabIndex: 2)),
         );
         break;
       case 3: // Profile

@@ -12,6 +12,10 @@ class AppUser {
   final List<String> eventList;
   final String role;
   final DateTime? createdAt;
+  final int points;
+  final List<String> badges;
+  final List<String> attendedEvents;
+  final Map<String, dynamic> statistics;
 
   AppUser({
     required this.uid,
@@ -25,6 +29,10 @@ class AppUser {
     required this.eventList,
     required this.role,
     this.createdAt,
+    this.points = 0,
+    this.badges = const [],
+    this.attendedEvents = const [],
+    this.statistics = const {},
   });
 
   factory AppUser.fromMap(Map<String, dynamic> map) {
@@ -45,6 +53,10 @@ class AppUser {
       createdAt: map['createdAt'] != null && map['createdAt'] is Timestamp
           ? (map['createdAt'] as Timestamp).toDate()
           : null,
+      points: map['points'] ?? 0,
+      badges: (map['badges'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      attendedEvents: (map['attendedEvents'] as List?)?.map((e) => e.toString()).toList() ?? [],
+      statistics: map['statistics'] ?? {},
     );
   }
 
@@ -61,6 +73,10 @@ class AppUser {
       'eventList': List<String>.from(eventList),
       'role': role,
       'createdAt': createdAt,
+      'points': points,
+      'badges': List<String>.from(badges),
+      'attendedEvents': List<String>.from(attendedEvents),
+      'statistics': statistics,
     };
   }
 }

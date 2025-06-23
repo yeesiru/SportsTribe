@@ -1,9 +1,44 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return request.auth != null && request.auth.token.email == 'admin@sportstribe.com';
+    }
+  
     // Open access to 'rewards' collection
     match /rewards/{rewardId} {
       allow read, write: if true;
+    }
+    
+    // Reward redemptions collection - users can create, admins can manage
+    match /reward_redemptions/{redemptionId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.userId || isAdmin()
+      );
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      allow update, delete: if isAdmin();
+    }
+    
+    // Event attendance collection - organizers and admins can write, users can read their own
+    match /event_attendance/{attendanceId} {
+      allow read: if request.auth != null && (
+        request.auth.uid == resource.data.userId || 
+        request.auth.uid == resource.data.markedBy ||
+        isAdmin()
+      );
+      allow create, update: if request.auth != null;
+      allow delete: if isAdmin();
+    }
+    
+    // Attendance sessions collection - event organizers can manage
+    match /attendance_sessions/{sessionId} {
+      allow read: if request.auth != null;
+      allow create, update: if request.auth != null && request.auth.uid == request.resource.data.createdBy;
+      allow delete: if request.auth != null && (
+        request.auth.uid == resource.data.createdBy || isAdmin()
+      );
     }
     
     match /users/{userId} {
@@ -14,45 +49,81 @@ service cloud.firestore {
       allow read, write: if request.auth != null;
     }
     
+    // Personal events collection (for events created via main page)
+    match /events/{eventId} {
+      // Allow reading if:
+      // 1. Event is public, OR
+      // 2. User is the creator of the event
+      allow read: if resource.data.isPublic == true || 
+        (request.auth != null && request.auth.uid == resource.data.createdBy);
+  
+    // Only authenticated users can create events and must be the creator
+    allow create: if request.auth != null && request.auth.uid == request.resource.data.createdBy;
+
+    // Allow updates if:
+    // 1. User is the event creator (for editing), OR
+    // 2. Event is public (for joining/leaving - participant updates)
+    allow update: if request.auth != null && (
+      request.auth.uid == resource.data.createdBy ||
+      (resource.data.isPublic == true && 
+       // Only allow updating participants field when joining/leaving
+       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participants']))
+    );
+  
+  	// Only the event creator can delete
+  	allow delete: if request.auth != null && request.auth.uid == resource.data.createdBy;
+		}
+    
     // Clubs collection
     match /club/{clubId} {
-      allow read, write: if request.auth != null;
+      // Temporarily allow read access to all, write requires auth or admin
+      allow read: if true;
+      allow write: if isAdmin() || request.auth != null;
 
-      // Messages subcollection - allow club members to read and write
+      // Messages subcollection - CORRECTLY PLACED INSIDE club collection
       match /messages/{messageId} {
+        // Allow authenticated users to read messages
         allow read: if request.auth != null;
+        // Allow club members to create messages
         allow create: if request.auth != null 
-          && request.auth.uid in get(/databases/$(database)/documents/club/$(clubId)).data.members;
+          && request.auth.uid in get(/databases/$(database)/documents/club/$(clubId)).data.members
+          && request.auth.uid == request.resource.data.senderId;
+        // Allow message sender to update/delete their own messages
         allow update, delete: if request.auth != null && 
           request.auth.uid == resource.data.senderId;
       }
 
       // Events subcollection
       match /events/{eventId} {
-        // Anyone can read events, only club members can create
-        allow read: if true;
+        // Admin has full access, for public clubs: anyone can read
+        // For private clubs: only members can read
+        // Anyone can create if they're a club member
+        allow read: if isAdmin() || (request.auth != null && (
+          get(/databases/$(database)/documents/club/$(clubId)).data.isPrivate != true ||
+          request.auth.uid in get(/databases/$(database)/documents/club/$(clubId)).data.members
+        ));
         allow create: if request.auth != null 
           && request.auth.uid in get(/databases/$(database)/documents/club/$(clubId)).data.members
           && request.auth.uid == request.resource.data.createdBy;
-        // Only the event creator OR club owner can update/delete
-        allow update, delete: if request.auth != null && (
+        // Admin, event creator, OR club owner can update/delete
+        allow update, delete: if isAdmin() || (request.auth != null && (
           request.auth.uid == resource.data.createdBy ||
           request.auth.uid == get(/databases/$(database)/documents/club/$(clubId)).data.creatorId
-        );
+        ));
       }
 
       // Posts subcollection
       match /posts/{postId} {
-        // Anyone can read posts, only club members can create
+        // Admin has full access, anyone can read posts, only club members can create
         allow read: if true;
         allow create: if request.auth != null 
           && request.auth.uid in get(/databases/$(database)/documents/club/$(clubId)).data.members
           && request.auth.uid == request.resource.data.createdBy;
-        // Only the post creator OR club owner can update/delete
-        allow update, delete: if request.auth != null && (
+        // Admin, post creator, OR club owner can update/delete
+        allow update, delete: if isAdmin() || (request.auth != null && (
           request.auth.uid == resource.data.createdBy ||
           request.auth.uid == get(/databases/$(database)/documents/club/$(clubId)).data.creatorId
-        );
+        ));
 
         // Comments subcollection (nested under posts)
         match /comments/{commentId} {
@@ -77,6 +148,21 @@ service cloud.firestore {
         // Only the club owner can read, update, or delete requests
         allow read, update, delete: if request.auth != null && request.auth.uid == get(/databases/$(database)/documents/club/$(clubId)).data.creatorId;
       }
+    }
+    
+    // Root-level Events collection (if used)
+    match /events/{eventId} {
+      allow read, write: if isAdmin() || request.auth != null;
+    }
+    
+    // Root-level Posts collection (if used) 
+    match /posts/{postId} {
+      allow read, write: if isAdmin() || request.auth != null;
+    }
+    
+    // Root-level Join Requests collection (if used)
+    match /join_requests/{requestId} {
+      allow read, write: if isAdmin() || request.auth != null;
     }
   }
 }

@@ -8,6 +8,8 @@ import 'package:map_project/pages/main_page.dart';
 import 'package:map_project/pages/chat_page.dart';
 import 'package:map_project/pages/leaderboard_page.dart';
 import 'package:map_project/pages/home_page.dart';
+import 'package:map_project/pages/badges_page.dart';
+import 'package:map_project/pages/view_rewards.dart';
 
 class ProfilePage extends StatefulWidget {
   final int initialTabIndex;
@@ -179,12 +181,11 @@ class _ProfilePageState extends State<ProfilePage> {
           context,
           MaterialPageRoute(builder: (context) => ChatPage(initialTabIndex: 1)),
         );
-        break;
-      case 2: // Leaderboard
+        break;      case 2: // Leaderboard
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(
-              builder: (context) => LeaderboardPage(initialTabIndex: 2)),
+              builder: (context) => const LeaderboardPage(initialTabIndex: 2)),
         );
         break;
       case 3: // Profile
@@ -504,6 +505,80 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
+  Widget _buildNavigationItem({
+    required IconData icon,
+    required String label,
+    required String subtitle,
+    required VoidCallback onTap,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12.0),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 10,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Color(0xFFD7F520).withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  icon,
+                  color: Colors.black87,
+                  size: 24,
+                ),
+              ),
+              SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                        color: Colors.black87,
+                      ),
+                    ),
+                    SizedBox(height: 4),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 14,
+                        color: Colors.grey[600],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.arrow_forward_ios,
+                color: Colors.grey[400],
+                size: 16,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -629,8 +704,7 @@ class _ProfilePageState extends State<ProfilePage> {
                       label: 'Email',
                       value: email,
                       onTap: () {}, // Email is not editable here
-                    ),
-                    _buildProfileItem(
+                    ),                    _buildProfileItem(
                       icon: Icons.sports_volleyball,
                       label: 'My Sports',
                       value: sportsList.isNotEmpty
@@ -638,6 +712,34 @@ class _ProfilePageState extends State<ProfilePage> {
                           : 'None',
                       onTap: () {
                         _editListField('sportsList', sportsList);
+                      },
+                    ),
+
+                    // Divider for new sections
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 16.0),
+                      child: Divider(thickness: 1, color: Colors.grey[300]),
+                    ),                    // Points and Rewards Section
+                    _buildNavigationItem(
+                      icon: Icons.emoji_events,
+                      label: 'My Badges',
+                      subtitle: 'View your achievements and progress',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => BadgesPage()),
+                        );
+                      },
+                    ),
+                    _buildNavigationItem(
+                      icon: Icons.card_giftcard,
+                      label: 'Rewards Store',
+                      subtitle: 'Redeem points for exclusive rewards',
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => UserViewRewardsPage()),
+                        );
                       },
                     ),
 

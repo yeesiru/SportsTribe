@@ -23,12 +23,10 @@ class AttendancePage extends StatefulWidget {
 
 class _AttendancePageState extends State<AttendancePage> {
   final Map<String, bool> _attendance = {};
-  final Map<String, Map<String, dynamic>> _participantData = {};
-  final Map<String, bool> _alreadyMarked = {};
+  final Map<String, Map<String, dynamic>> _participantData = {};  final Map<String, bool> _alreadyMarked = {};
   bool _isLoading = true;
   bool _isSubmitting = false;
   bool _selectAll = false;
-  bool _attendanceAlreadyRecorded = false;
   Timer? _submitTimer;
   int _timeoutCountdown = 30;
   @override
@@ -42,45 +40,55 @@ class _AttendancePageState extends State<AttendancePage> {
     _submitTimer?.cancel();
     super.dispose();
   }
-
   Future<void> _initializeAttendance() async {
     // Initialize attendance map
     for (String participantId in widget.participants) {
       _attendance[participantId] = false;
       _alreadyMarked[participantId] = false;
-    }
-
-    // Check if attendance has already been recorded for this event
+    }    // Check if attendance has already been recorded for this event
     try {
-      DocumentSnapshot eventDoc = await FirebaseFirestore.instance
-          .collection('events')
+      // Check if attendance session exists
+      DocumentSnapshot attendanceSessionDoc = await FirebaseFirestore.instance
+          .collection('attendance_sessions')
           .doc(widget.eventId)
           .get();
 
-      if (eventDoc.exists) {
-        Map<String, dynamic> eventData =
-            eventDoc.data() as Map<String, dynamic>;
-
+      if (attendanceSessionDoc.exists) {
+        Map<String, dynamic> sessionData = attendanceSessionDoc.data() as Map<String, dynamic>;
+        
         // Check if attendance field exists and has been recorded
-        if (eventData.containsKey('attendance') &&
-            eventData['attendance'] is Map) {
-          Map<String, dynamic> attendanceData = eventData['attendance'];
-
-          // Check if any participant already has attendance marked
+        if (sessionData.containsKey('attendance') && sessionData['attendance'] is Map) {
+          Map<String, dynamic> attendanceData = sessionData['attendance'];
+            // Mark participants who already have attendance recorded
           for (String participantId in widget.participants) {
             if (attendanceData.containsKey(participantId)) {
               _alreadyMarked[participantId] = true;
-              _attendance[participantId] =
-                  attendanceData[participantId] ?? false;
+              _attendance[participantId] = attendanceData[participantId] ?? false;
             }
           }
-
-          // If any participant has been marked, consider attendance as recorded
-          if (_alreadyMarked.values.any((marked) => marked)) {
-            _attendanceAlreadyRecorded = true;
-          }
         }
-      }
+      }      // Also check individual attendance records for all participants
+      // (This handles cases where attendance was marked individually)
+      for (String participantId in widget.participants) {
+        // Skip if already marked from attendance_sessions
+        if (_alreadyMarked[participantId] == true) continue;
+        
+        try {
+          DocumentSnapshot attendanceRecord = await FirebaseFirestore.instance
+              .collection('event_attendance')
+              .doc('${widget.eventId}_$participantId')
+              .get();
+              
+          if (attendanceRecord.exists) {
+            Map<String, dynamic> recordData = attendanceRecord.data() as Map<String, dynamic>;
+            _alreadyMarked[participantId] = true;
+            _attendance[participantId] = recordData['isPresent'] ?? false;
+          }
+        } catch (e) {
+          print('Error checking attendance record for $participantId: $e');        }
+      }      // Note: We rely on individual attendance records to determine if someone
+      // has already been marked, rather than checking if the entire event is "completed"
+      // This allows new members to join and mark attendance even after initial marking
     } catch (e) {
       print('Error checking existing attendance: $e');
     }
@@ -106,12 +114,14 @@ class _AttendancePageState extends State<AttendancePage> {
       _isLoading = false;
     });
   }
-
   void _toggleSelectAll() {
-    if (_attendanceAlreadyRecorded) {
+    // Check if there are any unmarked participants
+    bool hasUnmarkedParticipants = _alreadyMarked.values.any((marked) => !marked);
+    
+    if (!hasUnmarkedParticipants) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Attendance has already been recorded for this event'),
+          content: Text('All participants\' attendance has already been recorded'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -199,9 +209,11 @@ class _AttendancePageState extends State<AttendancePage> {
       if (_timeoutCountdown <= 0) {
         timer.cancel();
       }
-    });
-
-    try {
+    });    try {
+      print('Submitting attendance for event: ${widget.eventId}');
+      print('Club ID: ${widget.clubId}');
+      print('New attendance data: $newAttendance');
+      
       // Add timeout to prevent indefinite loading
       bool success = await PointsBadgeService.markAttendance(
         widget.eventId,
@@ -218,14 +230,20 @@ class _AttendancePageState extends State<AttendancePage> {
 
       _submitTimer?.cancel();
 
-      if (success) {
+      print('Attendance marking result: $success');if (success) {
+        // Update the local state to reflect the successful marking
+        for (String participantId in newAttendance.keys) {
+          _alreadyMarked[participantId] = true;
+        }
+        
         // Show success dialog with details
         _showAttendanceResults(newAttendance);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Failed to mark attendance. Please try again.'),
+            content: Text('Failed to mark attendance. Please check your permissions and try again.'),
             backgroundColor: Colors.red,
+            duration: Duration(seconds: 5),
           ),
         );
       }

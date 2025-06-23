@@ -31,11 +31,10 @@ service cloud.firestore {
       allow create, update: if request.auth != null;
       allow delete: if isAdmin();
     }
-    
-    // Attendance sessions collection - event organizers can manage
+      // Attendance sessions collection - any authenticated user can manage
     match /attendance_sessions/{sessionId} {
       allow read: if request.auth != null;
-      allow create, update: if request.auth != null && request.auth.uid == request.resource.data.createdBy;
+      allow create, update: if request.auth != null;
       allow delete: if request.auth != null && (
         request.auth.uid == resource.data.createdBy || isAdmin()
       );
@@ -58,16 +57,17 @@ service cloud.firestore {
         (request.auth != null && request.auth.uid == resource.data.createdBy);
   
     // Only authenticated users can create events and must be the creator
-    allow create: if request.auth != null && request.auth.uid == request.resource.data.createdBy;
-
-    // Allow updates if:
+    allow create: if request.auth != null && request.auth.uid == request.resource.data.createdBy;    // Allow updates if:
     // 1. User is the event creator (for editing), OR
-    // 2. Event is public (for joining/leaving - participant updates)
+    // 2. Event is public (for joining/leaving - participant updates), OR
+    // 3. User is marking attendance (updating completion status)
     allow update: if request.auth != null && (
       request.auth.uid == resource.data.createdBy ||
       (resource.data.isPublic == true && 
        // Only allow updating participants field when joining/leaving
-       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participants']))
+       request.resource.data.diff(resource.data).affectedKeys().hasOnly(['participants'])) ||
+      // Allow attendance marking updates
+      request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isCompleted', 'attendanceMarked', 'completedAt'])
     );
   
   	// Only the event creator can delete
@@ -104,11 +104,12 @@ service cloud.firestore {
         ));
         allow create: if request.auth != null 
           && request.auth.uid in get(/databases/$(database)/documents/club/$(clubId)).data.members
-          && request.auth.uid == request.resource.data.createdBy;
-        // Admin, event creator, OR club owner can update/delete
+          && request.auth.uid == request.resource.data.createdBy;        // Admin, event creator, club owner, OR attendance marker can update/delete
         allow update, delete: if isAdmin() || (request.auth != null && (
           request.auth.uid == resource.data.createdBy ||
-          request.auth.uid == get(/databases/$(database)/documents/club/$(clubId)).data.creatorId
+          request.auth.uid == get(/databases/$(database)/documents/club/$(clubId)).data.creatorId ||
+          // Allow attendance marking updates
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isCompleted', 'attendanceMarked', 'completedAt'])
         ));
       }
 

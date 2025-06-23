@@ -96,8 +96,7 @@ class PointsBadgeService {
         'totalPoints': 0,
         'totalBadges': 0,
       };
-    }
-  }
+    }  }
 
   // Mark attendance for an event
   static Future<bool> markAttendance(
@@ -107,8 +106,16 @@ class PointsBadgeService {
     String? clubId,
   ) async {
     try {
+      // Check if user is authenticated
+      if (_auth.currentUser == null) {
+        print('Error: User not authenticated');
+        return false;
+      }
+      
       String markerId = _auth.currentUser!.uid;
       DateTime now = DateTime.now();
+
+      print('Marking attendance for event: $eventId with ${attendance.length} participants');
 
       // Create attendance session
       AttendanceSession session = AttendanceSession(
@@ -119,13 +126,34 @@ class PointsBadgeService {
         isCompleted: true,
         createdAt: now,
         createdBy: markerId,
-      );
-
-      // Save attendance session
-      await _firestore
+      );// Save attendance session (merge with existing data if present)
+      DocumentReference sessionRef = _firestore
           .collection('attendance_sessions')
-          .doc(eventId)
-          .set(session.toFirestore());
+          .doc(eventId);
+          
+      DocumentSnapshot existingSession = await sessionRef.get();
+      
+      if (existingSession.exists) {
+        // Merge with existing attendance data
+        Map<String, dynamic> existingData = existingSession.data() as Map<String, dynamic>;
+        Map<String, bool> existingAttendance = Map<String, bool>.from(existingData['attendance'] ?? {});
+        
+        // Merge new attendance with existing
+        existingAttendance.addAll(attendance);
+        
+        // Update participants list
+        List<String> existingParticipants = List<String>.from(existingData['participants'] ?? []);
+        Set<String> allParticipants = {...existingParticipants, ...attendance.keys};
+        
+        await sessionRef.update({
+          'participants': allParticipants.toList(),
+          'attendance': existingAttendance,
+          'isCompleted': true,
+        });
+      } else {
+        // Create new session
+        await sessionRef.set(session.toFirestore());
+      }
 
       // Process each participant
       for (String userId in attendance.keys) {
@@ -191,9 +219,20 @@ class PointsBadgeService {
         'completedAt': Timestamp.fromDate(now),
       });
 
-      return true;
-    } catch (e) {
+      return true;    } catch (e) {
       print('Error marking attendance: $e');
+      print('Error type: ${e.runtimeType}');
+      print('Stack trace: ${StackTrace.current}');
+      
+      // Check specific error types for better debugging
+      if (e.toString().contains('permission-denied')) {
+        print('Permission denied - check Firestore security rules');
+      } else if (e.toString().contains('not-found')) {
+        print('Document not found - check if event exists');
+      } else if (e.toString().contains('unauthenticated')) {
+        print('User not authenticated - check auth state');
+      }
+      
       return false;
     }
   }

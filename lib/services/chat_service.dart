@@ -242,4 +242,70 @@ class ChatService {
     print('User joined clubs: ${userClubs.docs.length}');
     print('=== DEBUG TEST COMPLETE ===');
   }
+
+  // Pin a message
+  static Future<void> pinMessage(String clubId, String messageId) async {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) throw Exception('User not authenticated');
+
+    try {
+      await _firestore
+          .collection('club')
+          .doc(clubId)
+          .collection('messages')
+          .doc(messageId)
+          .update({
+        'isPinned': true,
+        'pinnedAt': FieldValue.serverTimestamp(),
+        'pinnedBy': currentUser.uid,
+      });
+
+      print('Message pinned successfully');
+    } catch (e) {
+      print('Error pinning message: $e');
+      throw e;
+    }
+  }
+
+  // Unpin a message
+  static Future<void> unpinMessage(String clubId, String messageId) async {
+    try {
+      await _firestore
+          .collection('club')
+          .doc(clubId)
+          .collection('messages')
+          .doc(messageId)
+          .update({
+        'isPinned': false,
+        'pinnedAt': null,
+        'pinnedBy': null,
+      });
+
+      print('Message unpinned successfully');
+    } catch (e) {
+      print('Error unpinning message: $e');
+      throw e;
+    }
+  }
+
+  // Get pinned messages for a club
+  static Stream<List<ChatMessage>> getPinnedMessages(String clubId) {
+    print('🔍 Getting pinned messages for club: $clubId');
+    return _firestore
+        .collection('club')
+        .doc(clubId)
+        .collection('messages')
+        .where('isPinned', isEqualTo: true)
+        .orderBy('pinnedAt', descending: false) // Oldest pinned first
+        .snapshots()
+        .map((snapshot) {
+      print('📌 Found ${snapshot.docs.length} pinned messages');
+      for (var doc in snapshot.docs) {
+        print('📌 Pinned message: ${doc.data()}');
+      }
+      return snapshot.docs
+          .map((doc) => ChatMessage.fromMap(doc.data(), doc.id))
+          .toList();
+    });
+  }
 }

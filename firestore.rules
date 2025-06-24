@@ -78,9 +78,7 @@ service cloud.firestore {
     match /club/{clubId} {
       // Temporarily allow read access to all, write requires auth or admin
       allow read: if true;
-      allow write: if isAdmin() || request.auth != null;
-
-      // Messages subcollection - CORRECTLY PLACED INSIDE club collection
+      allow write: if isAdmin() || request.auth != null;      // Messages subcollection - CORRECTLY PLACED INSIDE club collection
       match /messages/{messageId} {
         // Allow authenticated users to read messages
         allow read: if request.auth != null;
@@ -89,8 +87,14 @@ service cloud.firestore {
           && request.auth.uid in get(/databases/$(database)/documents/club/$(clubId)).data.members
           && request.auth.uid == request.resource.data.senderId;
         // Allow message sender to update/delete their own messages
-        allow update, delete: if request.auth != null && 
-          request.auth.uid == resource.data.senderId;
+        // OR allow club members to update isPinned field for pinning/unpinning
+        allow update: if request.auth != null && (
+          (request.auth.uid == resource.data.senderId) ||
+          (request.auth.uid in get(/databases/$(database)/documents/club/$(clubId)).data.members &&
+           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['isPinned']))
+        );
+        // Only message sender can delete their own messages
+        allow delete: if request.auth != null && request.auth.uid == resource.data.senderId;
       }
 
       // Events subcollection

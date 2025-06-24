@@ -6,7 +6,7 @@ import 'package:map_project/pages/home_page.dart';
 import 'package:map_project/pages/chat_room_page.dart';
 import 'package:map_project/models/club.dart';
 import 'package:map_project/services/chat_service.dart';
-import 'package:map_project/services/data_seeder.dart';
+import 'package:map_project/services/unread_message_service.dart';
 
 class ChatPage extends StatefulWidget {
   final int initialTabIndex;
@@ -25,6 +25,7 @@ class _ChatPageState extends State<ChatPage> {
   late int _currentTabIndex;
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+  final UnreadMessageService _unreadService = UnreadMessageService();
   List<Club> _getFilteredClubs(List<Club> clubs) {
     if (_searchQuery.isEmpty) {
       return clubs;
@@ -268,47 +269,31 @@ class _ChatPageState extends State<ChatPage> {
                             ),
                           );
                         }
-
                         if (!snapshot.hasData || snapshot.data!.isEmpty) {
                           return Center(
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 Icon(
-                                  Icons.group_outlined,
+                                  Icons.chat_bubble_outline,
                                   size: 64,
                                   color: Colors.grey[300],
                                 ),
                                 SizedBox(height: 16),
                                 Text(
-                                  'No clubs joined yet',
+                                  'No chat group',
                                   style: TextStyle(
                                     color: Colors.grey[500],
-                                    fontSize: 16,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                                 SizedBox(height: 8),
                                 Text(
-                                  'Tap the 🐛 button to create sample clubs',
+                                  'Please join a club to start chatting',
                                   style: TextStyle(
                                     color: Colors.grey[400],
                                     fontSize: 14,
-                                  ),
-                                ),
-                                SizedBox(height: 16),
-                                ElevatedButton(
-                                  onPressed: () async {
-                                    await DataSeeder.seedInitialData();
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(
-                                          content:
-                                              Text('Sample clubs created!')),
-                                    );
-                                  },
-                                  child: Text('Create Sample Clubs'),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Color(0xFFD7F520),
-                                    foregroundColor: Colors.black,
                                   ),
                                 ),
                               ],
@@ -347,49 +332,99 @@ class _ChatPageState extends State<ChatPage> {
                             ),
                           );
                         }
-
                         return ListView.builder(
                           itemCount: clubs.length,
                           itemBuilder: (context, index) {
                             final club = clubs[index];
-                            return ListTile(
-                              leading: CircleAvatar(
-                                radius: 20,
-                                backgroundColor: Colors.green[200],
-                                backgroundImage: club.imageUrl.isNotEmpty
-                                    ? NetworkImage(club.imageUrl)
-                                    : null,
-                                child: club.imageUrl.isEmpty
-                                    ? Icon(Icons.sports_tennis,
-                                        color: Colors.green[800], size: 20)
-                                    : null,
-                              ),
-                              title: Text(
-                                club.name,
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              subtitle: Text(
-                                club.lastMessage.isEmpty
-                                    ? 'No messages yet'
-                                    : club.lastMessage,
-                                style: TextStyle(
-                                    color: Colors.grey[600], fontSize: 13),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                              trailing: Text(
-                                ChatService.formatTimestamp(
-                                    club.lastMessageTime),
-                                style: TextStyle(
-                                    color: Colors.grey[500], fontSize: 12),
-                              ),
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        ChatRoomPage(club: club),
+
+                            // Update unread status for this club
+                            _unreadService.updateUnreadStatus(
+                                club.id, club.lastMessageTime);
+
+                            return ValueListenableBuilder<bool>(
+                              valueListenable:
+                                  _unreadService.getUnreadNotifier(club.id),
+                              builder: (context, hasUnread, child) {
+                                return ListTile(
+                                  leading: CircleAvatar(
+                                    radius: 20,
+                                    backgroundColor: Colors.green[200],
+                                    backgroundImage: club.imageUrl.isNotEmpty
+                                        ? NetworkImage(club.imageUrl)
+                                        : null,
+                                    child: club.imageUrl.isEmpty
+                                        ? Icon(Icons.sports_tennis,
+                                            color: Colors.green[800], size: 20)
+                                        : null,
                                   ),
+                                  title: Text(
+                                    club.name,
+                                    style: TextStyle(
+                                      fontWeight: hasUnread
+                                          ? FontWeight.bold
+                                          : FontWeight.w600,
+                                      color: hasUnread
+                                          ? Colors.black
+                                          : Colors.black87,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    club.lastMessage.isEmpty
+                                        ? 'No messages yet'
+                                        : club.lastMessage,
+                                    style: TextStyle(
+                                      color: hasUnread
+                                          ? Colors.black87
+                                          : Colors.grey[600],
+                                      fontSize: 13,
+                                      fontWeight: hasUnread
+                                          ? FontWeight.w500
+                                          : FontWeight.normal,
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  trailing: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text(
+                                        ChatService.formatTimestamp(
+                                            club.lastMessageTime),
+                                        style: TextStyle(
+                                          color: hasUnread
+                                              ? Colors.black87
+                                              : Colors.grey[500],
+                                          fontSize: 12,
+                                          fontWeight: hasUnread
+                                              ? FontWeight.w500
+                                              : FontWeight.normal,
+                                        ),
+                                      ),
+                                      if (hasUnread)
+                                        Container(
+                                          margin: EdgeInsets.only(top: 4),
+                                          width: 8,
+                                          height: 8,
+                                          decoration: BoxDecoration(
+                                            color: Color(0xFFD7F520),
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  onTap: () {
+                                    // Mark as read when tapping
+                                    _unreadService.markAsRead(club.id);
+
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            ChatRoomPage(club: club),
+                                      ),
+                                    );
+                                  },
                                 );
                               },
                             );

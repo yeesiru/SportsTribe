@@ -8,7 +8,6 @@ import 'package:map_project/services/chat_service.dart';
 import 'package:map_project/widgets/user_avatar.dart';
 import 'package:map_project/services/user_service.dart';
 import 'package:map_project/services/unread_message_service.dart';
-import 'package:map_project/pages/pinned_messages_page.dart';
 
 class ChatRoomPage extends StatefulWidget {
   final Club club;
@@ -335,11 +334,6 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                 onTap: () async {
                   Navigator.pop(context);
                   try {
-                    print(
-                        '📌 Attempting to ${message.isPinned ? 'unpin' : 'pin'} message: ${message.id}');
-                    print('📌 Club ID: ${widget.club.id}');
-                    print('📌 Message content: ${message.message}');
-
                     if (message.isPinned) {
                       await ChatService.unpinMessage(
                           widget.club.id, message.id);
@@ -353,7 +347,6 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                       );
                     }
                   } catch (e) {
-                    print('❌ Error pinning/unpinning message: $e');
                     ScaffoldMessenger.of(context).showSnackBar(
                       SnackBar(
                         content: Text('Error: ${e.toString()}'),
@@ -413,60 +406,6 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    StreamBuilder<List<ChatMessage>>(
-                      stream: ChatService.getPinnedMessages(widget.club.id),
-                      builder: (context, snapshot) {
-                        final hasPinnedMessages =
-                            snapshot.hasData && snapshot.data!.isNotEmpty;
-                        return Stack(
-                          children: [
-                            IconButton(
-                              onPressed: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute(
-                                    builder: (context) =>
-                                        PinnedMessagesPage(club: widget.club),
-                                  ),
-                                );
-                              },
-                              icon: Icon(
-                                Icons.push_pin,
-                                color: hasPinnedMessages
-                                    ? Colors.amber[700]
-                                    : Colors.black54,
-                              ),
-                              padding: EdgeInsets.zero,
-                              constraints: BoxConstraints(),
-                            ),
-                            if (hasPinnedMessages)
-                              Positioned(
-                                right: 0,
-                                top: 0,
-                                child: Container(
-                                  padding: EdgeInsets.all(2),
-                                  decoration: BoxDecoration(
-                                    color: Colors.red,
-                                    borderRadius: BorderRadius.circular(6),
-                                  ),
-                                  constraints: BoxConstraints(
-                                    minWidth: 12,
-                                    minHeight: 12,
-                                  ),
-                                  child: Text(
-                                    '${snapshot.data!.length}',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 8,
-                                    ),
-                                    textAlign: TextAlign.center,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        );
-                      },
-                    ),
                   ],
                 ),
                 SizedBox(height: 12),
@@ -507,68 +446,167 @@ class _ChatRoomPageState extends State<ChatRoomPage> {
                   topRight: Radius.circular(20),
                 ),
               ),
-              child: StreamBuilder<List<ChatMessage>>(
-                stream: ChatService.getClubMessages(widget.club.id),
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return Center(child: CircularProgressIndicator());
-                  }
+              child: Column(
+                children: [
+                  // Pinned Messages Section
+                  StreamBuilder<List<ChatMessage>>(
+                    stream: ChatService.getPinnedMessages(widget.club.id),
+                    builder: (context, pinnedSnapshot) {
+                      if (!pinnedSnapshot.hasData ||
+                          pinnedSnapshot.data!.isEmpty) {
+                        return SizedBox.shrink();
+                      }
 
-                  if (!snapshot.hasData || snapshot.data!.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.chat_bubble_outline,
-                            size: 64,
-                            color: Colors.grey[300],
-                          ),
-                          SizedBox(height: 16),
-                          Text(
-                            'No messages yet',
-                            style: TextStyle(
-                              color: Colors.grey[500],
-                              fontSize: 16,
+                      final pinnedMessages = pinnedSnapshot.data!;
+                      return Container(
+                        color: Colors.amber[50],
+                        child: Column(
+                          children: [
+                            Container(
+                              padding: EdgeInsets.all(8),
+                              child: Row(
+                                children: [
+                                  Icon(Icons.push_pin,
+                                      size: 16, color: Colors.amber[700]),
+                                  SizedBox(width: 8),
+                                  Text(
+                                    'Pinned Messages',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.amber[700],
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                          SizedBox(height: 8),
-                          Text(
-                            'Start the conversation!',
-                            style: TextStyle(
-                              color: Colors.grey[400],
-                              fontSize: 14,
+                            Container(
+                              height: 120,
+                              child: ListView.builder(
+                                scrollDirection: Axis.horizontal,
+                                itemCount: pinnedMessages.length,
+                                itemBuilder: (context, index) {
+                                  final pinnedMessage = pinnedMessages[index];
+                                  return Container(
+                                    width: 250,
+                                    margin: EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 4),
+                                    padding: EdgeInsets.all(8),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(8),
+                                      border:
+                                          Border.all(color: Colors.amber[300]!),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          pinnedMessage.senderName,
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 12,
+                                          ),
+                                        ),
+                                        SizedBox(height: 4),
+                                        Expanded(
+                                          child: Text(
+                                            pinnedMessage.message,
+                                            style: TextStyle(fontSize: 12),
+                                            overflow: TextOverflow.ellipsis,
+                                            maxLines: 3,
+                                          ),
+                                        ),
+                                        Text(
+                                          _formatMalaysiaTime(
+                                              pinnedMessage.timestamp),
+                                          style: TextStyle(
+                                            fontSize: 10,
+                                            color: Colors.grey[600],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                },
+                              ),
                             ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  final messages = snapshot.data!;
-                  return ListView.builder(
-                    controller: _scrollController,
-                    reverse: true,
-                    itemCount: messages.length,
-                    itemBuilder: (context, index) {
-                      final message = messages[index];
-                      final isMe = message.senderId == user.uid;
-
-                      final showDateHeader =
-                          _shouldShowDateHeader(messages, index);
-                      return Column(
-                        children: [
-                          if (showDateHeader)
-                            _buildDateHeader(message.timestamp),
-                          GestureDetector(
-                            onLongPress: () => _showMessageOptions(message),
-                            child: _buildMessageBubble(message, isMe),
-                          ),
-                        ],
+                            Divider(height: 1, color: Colors.amber[200]),
+                          ],
+                        ),
                       );
                     },
-                  );
-                },
+                  ),
+                  // Regular Messages Section
+                  Expanded(
+                    child: StreamBuilder<List<ChatMessage>>(
+                      stream: ChatService.getClubMessages(widget.club.id),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState ==
+                            ConnectionState.waiting) {
+                          return Center(child: CircularProgressIndicator());
+                        }
+
+                        if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.chat_bubble_outline,
+                                  size: 64,
+                                  color: Colors.grey[300],
+                                ),
+                                SizedBox(height: 16),
+                                Text(
+                                  'No messages yet',
+                                  style: TextStyle(
+                                    color: Colors.grey[500],
+                                    fontSize: 16,
+                                  ),
+                                ),
+                                SizedBox(height: 8),
+                                Text(
+                                  'Start the conversation!',
+                                  style: TextStyle(
+                                    color: Colors.grey[400],
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }
+
+                        final messages = snapshot.data!;
+                        return ListView.builder(
+                          controller: _scrollController,
+                          reverse: true,
+                          itemCount: messages.length,
+                          itemBuilder: (context, index) {
+                            final message = messages[index];
+                            final isMe = message.senderId == user.uid;
+
+                            final showDateHeader =
+                                _shouldShowDateHeader(messages, index);
+                            return Column(
+                              children: [
+                                if (showDateHeader)
+                                  _buildDateHeader(message.timestamp),
+                                GestureDetector(
+                                  onLongPress: () =>
+                                      _showMessageOptions(message),
+                                  child: _buildMessageBubble(message, isMe),
+                                ),
+                              ],
+                            );
+                          },
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

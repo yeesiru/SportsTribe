@@ -131,7 +131,6 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
       );
     }
   }
-
   Widget _buildNavItem({
     required IconData icon,
     required bool isActive,
@@ -145,21 +144,30 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
         children: [
           Stack(
             children: [
-              Icon(
-                icon,
-                color: isActive ? const Color(0xFFD7F520) : Colors.grey,
-                size: 24,
+              Container(
+                padding: EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isActive
+                      ? Colors.black.withOpacity(0.1)
+                      : Colors.transparent,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  icon,
+                  color: isActive ? Colors.black : Colors.grey,
+                ),
               ),
               if (hasNotification)
                 Positioned(
                   right: 0,
                   top: 0,
                   child: Container(
-                    width: 8,
-                    height: 8,
-                    decoration: const BoxDecoration(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
                       color: Colors.red,
                       shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1),
                     ),
                   ),
                 ),
@@ -167,11 +175,11 @@ class _LeaderboardPageState extends State<LeaderboardPage> {
           ),
           if (isActive)
             Container(
-              margin: const EdgeInsets.only(top: 4),
-              width: 4,
-              height: 4,
-              decoration: const BoxDecoration(
-                color: Color(0xFFD7F520),
+              margin: EdgeInsets.only(top: 4),
+              width: 5,
+              height: 5,
+              decoration: BoxDecoration(
+                color: Colors.black,
                 shape: BoxShape.circle,
               ),
             ),

@@ -465,8 +465,7 @@ class _ChatPageState extends State<ChatPage> {
                   isActive: _currentTabIndex == 2,
                   onTap: () {
                     _navigateToPage(2);
-                  },
-                  hasNotification: true),
+                  }),
               _buildNavItem(
                   icon: Icons.person_outline,
                   isActive: _currentTabIndex == 3,

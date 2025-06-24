@@ -1224,8 +1224,7 @@ class _HomePageState extends State<HomePage> {
               _buildNavItem(
                   icon: Icons.rocket,
                   isActive: _currentTabIndex == 2,
-                  onTap: () => _navigateToPage(2),
-                  hasNotification: true),
+                  onTap: () => _navigateToPage(2)),
               _buildNavItem(
                   icon: Icons.person_outline,
                   isActive: _currentTabIndex == 3,
